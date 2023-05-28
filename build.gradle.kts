@@ -5,6 +5,9 @@ val logback_version: String by project
 plugins {
     kotlin("jvm") version "1.8.21"
     id("io.ktor.plugin") version "2.3.0"
+    id("org.jetbrains.kotlin.plugin.serialization") version "1.9.0-Beta"
+
+
 }
 
 group = "com.example"
@@ -24,26 +27,28 @@ dependencies {
     implementation("io.ktor:ktor-server-core-jvm:$ktor_version")
     implementation("io.ktor:ktor-server-netty-jvm:$ktor_version")
     implementation("ch.qos.logback:logback-classic:$logback_version")
+    implementation("com.ryanharter.ktor:ktor-moshi:1.0.1")
+    implementation("com.ryanharter.ktor:ktor-moshi:1.0.1")
+    implementation("com.ryanharter.ktor:ktor-moshi:1.0.1")
+    implementation("com.ryanharter.ktor:ktor-moshi:1.0.1")
     testImplementation("io.ktor:ktor-server-tests-jvm:$ktor_version")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit:$kotlin_version")
-
     implementation("org.jetbrains.kotlin:kotlin-stdlib")
     implementation("org.jetbrains.exposed:exposed-core:0.41.1")
     implementation("org.jetbrains.exposed:exposed-dao:0.41.1")
     implementation("org.jetbrains.exposed:exposed-jdbc:0.41.1")
     implementation("mysql:mysql-connector-java:8.0.33")
     implementation("org.jetbrains.exposed:exposed-java-time:0.32.1")
+    implementation("org.mindrot:jbcrypt:0.4")
+    implementation("io.ktor:ktor-server-auth:$ktor_version")
+    implementation("io.ktor:ktor-client-auth-jvm:2.3.0")
+    implementation("io.ktor:ktor-server-auth-jwt:$ktor_version")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.3.2")
+    implementation ("io.ktor:ktor-serialization:1.6.7")
+    implementation("io.ktor:ktor-client-content-negotiation:$ktor_version")
+    implementation("io.ktor:ktor-serialization-kotlinx-json:$ktor_version")
 
-    /*
-    // https://mvnrepository.com/artifact/org.jetbrains.exposed/exposed-core
-    implementation("org.jetbrains.exposed:exposed-core:0.41.1")
-    // https://mvnrepository.com/artifact/org.jetbrains.exposed/exposed-dao
-    implementation("org.jetbrains.exposed:exposed-dao:0.41.1")
-    // https://mvnrepository.com/artifact/org.jetbrains.exposed/exposed-jdbc
-    runtimeOnly("org.jetbrains.exposed:exposed-jdbc:0.41.1")
-    // https://mvnrepository.com/artifact/mysql/mysql-connector-java
-    implementation("mysql:mysql-connector-java:8.0.33")
-    */
+
 
 
 
