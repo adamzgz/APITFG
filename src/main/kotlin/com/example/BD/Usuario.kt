@@ -1,10 +1,10 @@
+import kotlinx.serialization.Serializable
 import org.jetbrains.exposed.dao.IntEntity
 import org.jetbrains.exposed.dao.IntEntityClass
 import org.jetbrains.exposed.dao.id.EntityID
 import org.jetbrains.exposed.dao.id.IntIdTable
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.mindrot.jbcrypt.BCrypt
-
 
 object Usuarios : IntIdTable() {
     val nombre = varchar("nombre", 50)
@@ -13,6 +13,7 @@ object Usuarios : IntIdTable() {
     val email = varchar("email", 100)
     val contraseña = varchar("contraseña", 255)
 }
+
 class Usuario(id: EntityID<Int>) : IntEntity(id) {
     companion object : IntEntityClass<Usuario>(Usuarios)
 
@@ -22,32 +23,44 @@ class Usuario(id: EntityID<Int>) : IntEntity(id) {
     var email by Usuarios.email
     var contraseña by Usuarios.contraseña
 
-    fun validarEmailUnico(): Boolean {
-        return transaction {
-            return@transaction Usuario.find { Usuarios.email eq email }.count() == 0L
+    @Serializable
+    data class UsuarioDto(
+        val nombre: String,
+        val direccion: String,
+        val telefono: String,
+        val email: String,
+        val contraseña: String
+    )
+
+    init {
+        validarEmailUnico()
+        validarTelefonoUnico()
+        //validarContraseña()
+    }
+
+    private fun validarEmailUnico() {
+        if (transaction { Usuario.find { Usuarios.email eq email }.count() > 0 }) {
+            throw IllegalArgumentException("El email ya está registrado")
         }
     }
 
-    fun validarTelefonoUnico(): Boolean {
-        return transaction {
-            return@transaction Usuario.find { Usuarios.telefono eq telefono }.count() == 0L
+    private fun validarTelefonoUnico() {
+        if (transaction { Usuario.find { Usuarios.telefono eq telefono }.count() > 0 }) {
+            throw IllegalArgumentException("El teléfono ya está registrado")
         }
     }
 
-    fun validarContraseña(): Boolean {
+    /*private fun validarContraseña() {
         val regex = Regex("^(?=.*[A-Z])(?=.*[0-9]).+\$")
-        return contraseña.matches(regex)
-    }
+        if (!contraseña.matches(regex)) {
+            throw IllegalArgumentException("La contraseña debe contener al menos una letra mayúscula y un número")
+        }
+    }*/
 
     fun registrar(): Boolean {
         return transaction {
             try {
-                if (!validarEmailUnico() || !validarTelefonoUnico() || !validarContraseña()) {
-                    return@transaction false
-                }
-
-                // Cifrar la contraseña
-                val contraseñaCifrada = cifrarContraseña(this@Usuario.contraseña)
+                val contraseñaCifrada = cifrarContraseña(contraseña)
 
                 val nuevoUsuario = Usuario.new {
                     this.nombre = this@Usuario.nombre
