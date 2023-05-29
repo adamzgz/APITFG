@@ -15,22 +15,95 @@ object Usuarios : IntIdTable() {
 }
 
 class Usuario(id: EntityID<Int>) : IntEntity(id) {
-    companion object : IntEntityClass<Usuario>(Usuarios)
+    companion object : IntEntityClass<Usuario>(Usuarios) {
+
+        @Serializable
+        data class UsuarioDto(
+            val nombre: String,
+            val direccion: String,
+            val telefono: String,
+            val email: String,
+            val contraseña: String
+        )
+
+        @Serializable
+        data class EmpleadoDto(
+            val nombre: String,
+            val direccion: String,
+            val telefono: String,
+            val email: String,
+            val contraseña: String,
+            val rol: String
+        )
+
+        fun registrar(usuarioDto: UsuarioDto): Boolean {
+            return transaction {
+                try {
+                    val contraseñaCifrada = cifrarContraseña(usuarioDto.contraseña)
+
+                    val nuevoUsuario = Usuario.new {
+                        nombre = usuarioDto.nombre
+                        direccion = usuarioDto.direccion
+                        telefono = usuarioDto.telefono
+                        email = usuarioDto.email
+                        contraseña = contraseñaCifrada
+                    }
+
+                    // Crear instancia en la tabla "Clientes"
+                    Cliente.new {
+                        id_usuario = nuevoUsuario
+                        vip = false
+                    }
+
+                    return@transaction true
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    return@transaction false
+                }
+            }
+        }
+
+        fun registrarEmpleado(empleadoDto: EmpleadoDto): Boolean {
+            return transaction {
+                try {
+                    val contraseñaCifrada = cifrarContraseña(empleadoDto.contraseña)
+
+                    val nuevoUsuario = Usuario.new {
+                        nombre = empleadoDto.nombre
+                        direccion = empleadoDto.direccion
+                        telefono = empleadoDto.telefono
+                        email = empleadoDto.email
+                        contraseña = contraseñaCifrada
+                    }
+
+                    // Convertir el string de rol a una instancia de RolEmpleado
+                    val rolEmpleado = Empleados.RolEmpleado.valueOf(empleadoDto.rol.toUpperCase())
+
+                    // Crear instancia en la tabla "Empleados"
+                    Empleado.new {
+                        id_usuario = nuevoUsuario
+                        rol = rolEmpleado
+                    }
+
+                    return@transaction true
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    return@transaction false
+                }
+            }
+        }
+
+        private fun cifrarContraseña(contraseña: String): String {
+            return BCrypt.hashpw(contraseña, BCrypt.gensalt())
+        }
+
+    }
 
     var nombre by Usuarios.nombre
     var direccion by Usuarios.direccion
     var telefono by Usuarios.telefono
     var email by Usuarios.email
     var contraseña by Usuarios.contraseña
-
-    @Serializable
-    data class UsuarioDto(
-        val nombre: String,
-        val direccion: String,
-        val telefono: String,
-        val email: String,
-        val contraseña: String
-    )
 
     init {
         validarEmailUnico()
@@ -56,35 +129,4 @@ class Usuario(id: EntityID<Int>) : IntEntity(id) {
             throw IllegalArgumentException("La contraseña debe contener al menos una letra mayúscula y un número")
         }
     }*/
-
-    fun registrar(): Boolean {
-        return transaction {
-            try {
-                val contraseñaCifrada = cifrarContraseña(contraseña)
-
-                val nuevoUsuario = Usuario.new {
-                    this.nombre = this@Usuario.nombre
-                    this.direccion = this@Usuario.direccion
-                    this.telefono = this@Usuario.telefono
-                    this.email = this@Usuario.email
-                    this.contraseña = contraseñaCifrada
-                }
-
-                // Crear instancia en la tabla "Clientes"
-                Cliente.new {
-                    this.id_usuario = nuevoUsuario
-                    this.vip = false
-                }
-
-                return@transaction true
-            } catch (e: Exception) {
-                e.printStackTrace()
-                return@transaction false
-            }
-        }
-    }
-
-    private fun cifrarContraseña(contraseña: String): String {
-        return BCrypt.hashpw(contraseña, BCrypt.gensalt())
-    }
 }
