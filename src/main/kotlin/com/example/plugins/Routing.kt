@@ -73,9 +73,23 @@ fun Application.configureRouting() {
                             .withSubject("Authentication")
                             .withIssuer(issuer)
                             .withClaim("email", post.email)
+                            .withClaim("userId", user.id.toString())  // Agregar la ID del usuario a las claims
                             .withExpiresAt(Date(System.currentTimeMillis() + 86_400_000)) // 24 hour validity
                             .sign(Algorithm.HMAC256(secret))
-                        call.respond(hashMapOf("token" to token))
+
+                        // Busca en las tablas de Cliente y Empleado para verificar la existencia del ID de usuario
+                        val isClient = transaction { Cliente.find { Clientes.id_usuario eq user.id }.any() }
+                        val isEmployee = transaction { Empleado.find { Empleados.id_usuario eq user.id }.any() }
+
+                        // Asegúrate de manejar el caso en el que un ID de usuario pueda ser tanto un cliente como un empleado,
+                        // dependiendo de cómo esté diseñada tu base de datos y lógica de negocio
+                        if (isClient) {
+                            call.respond(hashMapOf("token" to token, "role" to "Cliente"))
+                        } else if (isEmployee) {
+                            call.respond(hashMapOf("token" to token, "role" to "Empleado"))
+                        } else {
+                            call.respond(HttpStatusCode.Unauthorized, "No se pudo determinar el rol del usuario")
+                        }
                     } else {
                         call.respond(HttpStatusCode.Unauthorized, "Contraseña o email incorrectos")
                     }
