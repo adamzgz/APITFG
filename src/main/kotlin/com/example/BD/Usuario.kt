@@ -39,6 +39,10 @@ class Usuario(id: EntityID<Int>) : IntEntity(id) {
         fun registrar(usuarioDto: UsuarioDto): Boolean {
             return transaction {
                 try {
+                    validarEmailUnico(usuarioDto.email)
+                    validarTelefonoUnico(usuarioDto.telefono)
+                    validarContraseña(usuarioDto.contraseña)
+
                     val contraseñaCifrada = cifrarContraseña(usuarioDto.contraseña)
 
                     val nuevoUsuario = Usuario.new {
@@ -55,17 +59,22 @@ class Usuario(id: EntityID<Int>) : IntEntity(id) {
                         vip = false
                     }
 
-                    return@transaction true
+                    true
                 } catch (e: Exception) {
                     e.printStackTrace()
-                    return@transaction false
+                    false
                 }
             }
         }
 
+
         fun registrarEmpleado(empleadoDto: EmpleadoDto): Boolean {
             return transaction {
                 try {
+                    validarEmailUnico(empleadoDto.email)
+                    validarTelefonoUnico(empleadoDto.telefono)
+                    validarContraseña(empleadoDto.contraseña)
+
                     val contraseñaCifrada = cifrarContraseña(empleadoDto.contraseña)
 
                     val nuevoUsuario = Usuario.new {
@@ -97,6 +106,25 @@ class Usuario(id: EntityID<Int>) : IntEntity(id) {
             return BCrypt.hashpw(contraseña, BCrypt.gensalt())
         }
 
+        private fun validarEmailUnico(email: String) {
+            if (transaction { Usuario.find { Usuarios.email eq email }.count() > 0 }) {
+                throw IllegalArgumentException("El email ya está registrado")
+            }
+        }
+
+        private fun validarTelefonoUnico(telefono: String) {
+            if (transaction { Usuario.find { Usuarios.telefono eq telefono }.count() > 0 }) {
+                throw IllegalArgumentException("El teléfono ya está registrado")
+            }
+        }
+
+        private fun validarContraseña(contraseña: String) {
+            val regex = Regex("^(?=.*[A-Z])(?=.*[0-9]).+\$")
+            if (!contraseña.matches(regex)) {
+                throw IllegalArgumentException("La contraseña debe contener al menos una letra mayúscula y un número")
+            }
+        }
+
     }
 
     var nombre by Usuarios.nombre
@@ -104,29 +132,5 @@ class Usuario(id: EntityID<Int>) : IntEntity(id) {
     var telefono by Usuarios.telefono
     var email by Usuarios.email
     var contraseña by Usuarios.contraseña
-
-    init {
-        validarEmailUnico()
-        validarTelefonoUnico()
-        //validarContraseña()
-    }
-
-    private fun validarEmailUnico() {
-        if (transaction { Usuario.find { Usuarios.email eq email }.count() > 0 }) {
-            throw IllegalArgumentException("El email ya está registrado")
-        }
-    }
-
-    private fun validarTelefonoUnico() {
-        if (transaction { Usuario.find { Usuarios.telefono eq telefono }.count() > 0 }) {
-            throw IllegalArgumentException("El teléfono ya está registrado")
-        }
-    }
-
-    /*private fun validarContraseña() {
-        val regex = Regex("^(?=.*[A-Z])(?=.*[0-9]).+\$")
-        if (!contraseña.matches(regex)) {
-            throw IllegalArgumentException("La contraseña debe contener al menos una letra mayúscula y un número")
-        }
-    }*/
 }
+

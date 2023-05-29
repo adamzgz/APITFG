@@ -1,3 +1,4 @@
+import EmpleadosChat.entityId
 import org.jetbrains.exposed.dao.IntEntity
 import org.jetbrains.exposed.dao.IntEntityClass
 import org.jetbrains.exposed.dao.id.EntityID
@@ -13,7 +14,7 @@ object DetallesPedidos : IntIdTable() {
 class DetallePedido(id: EntityID<Int>) : IntEntity(id) {
     companion object : IntEntityClass<DetallePedido>(DetallesPedidos)
 
-    var id_pedido by Pedido referencedOn DetallesPedidos.id_pedido
+    var id_pedido by Pedido referencedOn DetallesPedidos.id_pedido.entityId()
     var id_producto by Producto referencedOn DetallesPedidos.id_producto
     var cantidad by DetallesPedidos.cantidad
 

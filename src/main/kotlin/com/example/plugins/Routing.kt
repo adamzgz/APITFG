@@ -46,17 +46,6 @@ fun Application.configureRouting() {
                 } else null
             }
         }
-        basic("auth-basic") {
-            realm = "Access to the '/' path"
-            validate { credentials ->
-                val user = transaction { Usuario.find { Usuarios.email eq credentials.name }.singleOrNull() }
-                if (user != null && BCrypt.checkpw(credentials.password, user.contraseña)) {
-                    UserIdPrincipal(credentials.name)
-                } else {
-                    null
-                }
-            }
-        }
     }
 
     routing {
@@ -73,18 +62,23 @@ fun Application.configureRouting() {
                 }
             }
             post("/login") {
-                val post = call.receive<Post>()
-                val user = transaction { Usuario.find { Usuarios.email eq post.email }.singleOrNull() }
-                if (user != null && BCrypt.checkpw(post.contraseña, user.contraseña)) {
-                    val token = JWT.create()
-                        .withSubject("Authentication")
-                        .withIssuer(issuer)
-                        .withClaim("email", post.email)
-                        .withExpiresAt(Date(System.currentTimeMillis() + 86_400_000)) // 24 hour validity
-                        .sign(Algorithm.HMAC256(secret))
-                    call.respond(hashMapOf("token" to token))
-                } else {
+                val post = call.receive<Usuario.Companion.UsuarioDto>()
+                Conexion.conectar()
+                if (post.email.isEmpty() || post.contraseña.isEmpty()) {
                     call.respond(HttpStatusCode.Unauthorized, "Contraseña o email incorrectos")
+                } else {
+                    val user = transaction { Usuario.find { Usuarios.email eq post.email }.singleOrNull() }
+                    if (user != null && BCrypt.checkpw(post.contraseña, user.contraseña)) {
+                        val token = JWT.create()
+                            .withSubject("Authentication")
+                            .withIssuer(issuer)
+                            .withClaim("email", post.email)
+                            .withExpiresAt(Date(System.currentTimeMillis() + 86_400_000)) // 24 hour validity
+                            .sign(Algorithm.HMAC256(secret))
+                        call.respond(hashMapOf("token" to token))
+                    } else {
+                        call.respond(HttpStatusCode.Unauthorized, "Contraseña o email incorrectos")
+                    }
                 }
             }
         }
