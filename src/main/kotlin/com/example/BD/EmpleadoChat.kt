@@ -1,3 +1,4 @@
+import kotlinx.serialization.Serializable
 import org.jetbrains.exposed.dao.IntEntity
 import org.jetbrains.exposed.dao.IntEntityClass
 import org.jetbrains.exposed.dao.id.EntityID
@@ -10,32 +11,82 @@ object EmpleadosChat : IntIdTable() {
 }
 
 class EmpleadoChat(id: EntityID<Int>) : IntEntity(id) {
-    companion object : IntEntityClass<EmpleadoChat>(EmpleadosChat)
+    companion object : IntEntityClass<EmpleadoChat>(EmpleadosChat) {
+        @Serializable
+        data class EmpleadoChatDto(
+            val idEmpleado: Int,
+            val idChat: Int
+        )
+
+        fun insertEmpleadoChat(idEmpleado: Int, idChat: Int) {
+            transaction {
+                val empleado = Empleado.findById(idEmpleado)
+                val chat = Chat.findById(idChat)
+
+                if (empleado == null) {
+                    println("Empleado no encontrado con el id: $idEmpleado")
+                    return@transaction
+                }
+
+                if (chat == null) {
+                    println("Chat no encontrado con el id: $idChat")
+                    return@transaction
+                }
+
+                EmpleadoChat.new {
+                    this.id_empleado = empleado
+                    this.id_chat = chat
+                }
+                println("Registro EmpleadoChat insertado con éxito")
+            }
+        }
+
+        fun borrarEmpleadoChat(idEmpleadoChat: Int): Boolean {
+            return transaction {
+                val empleadoChat = EmpleadoChat.findById(idEmpleadoChat)
+
+                if (empleadoChat == null) {
+                    println("EmpleadoChat no encontrado con el id: $idEmpleadoChat")
+                    return@transaction false
+                }
+
+                empleadoChat.delete()
+                println("EmpleadoChat borrado con éxito para el id: $idEmpleadoChat")
+                return@transaction true
+            }
+        }
+
+        fun actualizarEmpleadoChat(idEmpleadoChat: Int, nuevoIdEmpleado: Int, nuevoIdChat: Int): Boolean {
+            return transaction {
+                val empleadoChat = EmpleadoChat.findById(idEmpleadoChat)
+
+                if (empleadoChat == null) {
+                    println("EmpleadoChat no encontrado con el id: $idEmpleadoChat")
+                    return@transaction false
+                }
+
+                val nuevoEmpleado = Empleado.findById(nuevoIdEmpleado)
+                val nuevoChat = Chat.findById(nuevoIdChat)
+
+                if (nuevoEmpleado == null) {
+                    println("Nuevo empleado no encontrado con el id: $nuevoIdEmpleado")
+                    return@transaction false
+                }
+
+                if (nuevoChat == null) {
+                    println("Nuevo chat no encontrado con el id: $nuevoIdChat")
+                    return@transaction false
+                }
+
+                empleadoChat.id_empleado = nuevoEmpleado
+                empleadoChat.id_chat = nuevoChat
+
+                println("EmpleadoChat actualizado con éxito para el id: $idEmpleadoChat")
+                return@transaction true
+            }
+        }
+    }
 
     var id_empleado by Empleado referencedOn EmpleadosChat.id_empleado
     var id_chat by Chat referencedOn EmpleadosChat.id_chat
-
-
-    fun insertEmpleadoChat(idEmpleado: Int, idChat: Int) {
-        transaction {
-            val empleado = Empleado.findById(idEmpleado)
-            val chat = Chat.findById(idChat)
-
-            if (empleado == null) {
-                println("Empleado no encontrado con el id: $idEmpleado")
-                return@transaction
-            }
-
-            if (chat == null) {
-                println("Chat no encontrado con el id: $idChat")
-                return@transaction
-            }
-
-            EmpleadoChat.new {
-                id_empleado = empleado
-                id_chat = chat
-            }
-            println("Registro EmpleadoChat insertado con éxito")
-        }
-    }
 }

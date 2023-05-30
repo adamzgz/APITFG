@@ -16,7 +16,6 @@ object Usuarios : IntIdTable() {
 
 class Usuario(id: EntityID<Int>) : IntEntity(id) {
     companion object : IntEntityClass<Usuario>(Usuarios) {
-
         @Serializable
         data class UsuarioDto(
             val nombre: String,
@@ -66,7 +65,6 @@ class Usuario(id: EntityID<Int>) : IntEntity(id) {
                 }
             }
         }
-
 
         fun registrarEmpleado(empleadoDto: EmpleadoDto): Boolean {
             return transaction {
@@ -119,12 +117,22 @@ class Usuario(id: EntityID<Int>) : IntEntity(id) {
         }
 
         private fun validarContraseña(contraseña: String) {
-            val regex = Regex("^(?=.*[A-Z])(?=.*[0-9]).+\$")
+            val regex = Regex("^(?=.*[A-Z])(?=.*[0-9]).+$")
             if (!contraseña.matches(regex)) {
                 throw IllegalArgumentException("La contraseña debe contener al menos una letra mayúscula y un número")
             }
         }
 
+        fun obtenerUsuarioPorEmail(email: String): Usuario? {
+            return transaction {
+                Usuario.find { Usuarios.email eq email }.singleOrNull()
+            }
+        }
+
+        fun login(email: String, contraseña: String): Boolean {
+            val usuario = obtenerUsuarioPorEmail(email)
+            return usuario != null && BCrypt.checkpw(contraseña, usuario.contraseña)
+        }
     }
 
     var nombre by Usuarios.nombre
@@ -133,4 +141,3 @@ class Usuario(id: EntityID<Int>) : IntEntity(id) {
     var email by Usuarios.email
     var contraseña by Usuarios.contraseña
 }
-

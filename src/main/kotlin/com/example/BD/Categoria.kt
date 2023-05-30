@@ -1,3 +1,4 @@
+import kotlinx.serialization.Serializable
 import org.jetbrains.exposed.dao.IntEntity
 import org.jetbrains.exposed.dao.IntEntityClass
 import org.jetbrains.exposed.dao.id.EntityID
@@ -9,30 +10,103 @@ object Categorias : IntIdTable() {
 }
 
 class Categoria(id: EntityID<Int>) : IntEntity(id) {
-    companion object : IntEntityClass<Categoria>(Categorias)
+    companion object : IntEntityClass<Categoria>(Categorias) {
+        @Serializable
+        data class CategoriaDto(
+            val nombre: String
+        )
 
-    var nombre by Categorias.nombre
+        fun crearCategoria(nombre: String): Boolean {
+            return transaction {
+                try {
+                    // Verificar si la categoría ya existe
+                    val categoriaExistente = Categoria.find { Categorias.nombre eq nombre }.firstOrNull()
+                    if (categoriaExistente != null) {
+                        println("La categoría '$nombre' ya existe.")
+                        return@transaction false
+                    }
 
-    fun crearCategoria(nombre: String): Boolean {
-        return transaction {
-            try {
-                // Verificar si la categoría ya existe
-                val categoriaExistente = Categoria.find { Categorias.nombre eq nombre }.firstOrNull()
-                if (categoriaExistente != null) {
-                    println("La categoría '$nombre' ya existe.")
+                    // Crear la nueva categoría
+                    Categoria.new {
+                        this.nombre = nombre
+                    }
+
+                    return@transaction true
+                } catch (e: Exception) {
+                    e.printStackTrace()
                     return@transaction false
                 }
+            }
+        }
 
-                // Crear la nueva categoría
-                Categoria.new {
-                    this.nombre = nombre
+        fun obtenerCategorias(): List<CategoriaDto> {
+            return transaction {
+                return@transaction Categoria.all().map { categoria ->
+                    CategoriaDto(categoria.nombre)
                 }
+            }
+        }
 
-                return@transaction true
-            } catch (e: Exception) {
-                e.printStackTrace()
-                return@transaction false
+        fun obtenerCategoria(id: Int): CategoriaDto? {
+            return transaction {
+                val categoria = Categoria.findById(id)
+                if (categoria != null) {
+                    return@transaction CategoriaDto(categoria.nombre)
+                } else {
+                    return@transaction null
+                }
+            }
+        }
+
+        fun actualizarCategoria(id: Int, nuevoNombre: String): Boolean {
+            return transaction {
+                try {
+                    // Buscar la categoría por su ID
+                    val categoria = Categoria.findById(id)
+                    if (categoria == null) {
+                        println("La categoría con ID $id no existe.")
+                        return@transaction false
+                    }
+
+                    // Verificar si la nueva categoría ya existe
+                    val categoriaExistente = Categoria.find { Categorias.nombre eq nuevoNombre }.firstOrNull()
+                    if (categoriaExistente != null && categoriaExistente != categoria) {
+                        println("La categoría '$nuevoNombre' ya existe.")
+                        return@transaction false
+                    }
+
+                    // Actualizar el nombre de la categoría
+                    categoria.nombre = nuevoNombre
+
+                    return@transaction true
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    return@transaction false
+                }
+            }
+        }
+
+        fun eliminarCategoria(id: Int): Boolean {
+            return transaction {
+                try {
+                    // Buscar la categoría por su ID
+                    val categoria = Categoria.findById(id)
+                    if (categoria == null) {
+                        println("La categoría con ID $id no existe.")
+                        return@transaction false
+                    }
+
+                    // Eliminar la categoría
+                    categoria.delete()
+
+                    return@transaction true
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    return@transaction false
+                }
             }
         }
     }
+
+    var nombre by Categorias.nombre
 }
