@@ -66,6 +66,12 @@ class Cliente(id: EntityID<Int>) : IntEntity(id) {
                 }
             }
         }
+        fun obtenerClientePorUsuario(idUsuario: Int): Cliente? {
+            return transaction {
+                Cliente.find { Clientes.id_usuario eq idUsuario }.singleOrNull()
+            }
+        }
+
 
         fun actualizarCliente(id: Int, idUsuario: Int? = null, vip: Boolean? = null): Boolean {
             // Validar id

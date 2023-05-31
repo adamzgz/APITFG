@@ -85,6 +85,21 @@ class Pedido(id: EntityID<Int>) : IntEntity(id) {
                 }
             }
         }
+        fun obtenerPedidosPorUsuario(idUsuario: Int): List<PedidoDto> {
+            return transaction {
+                val cliente = Cliente.findById(idUsuario)
+                if (cliente != null) {
+                    return@transaction Pedido.find { Pedidos.id_cliente eq cliente.id }.map { pedido ->
+                        PedidoDto(
+                            pedido.id_cliente.value,
+                            pedido.estado.name
+                        )
+                    }
+                } else {
+                    return@transaction emptyList()
+                }
+            }
+        }
 
         fun actualizarPedido(
             idPedido: Int,

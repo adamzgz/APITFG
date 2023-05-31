@@ -78,7 +78,7 @@ fun Application.configureRouting() {
                             .withSubject("Authentication")
                             .withIssuer(issuer)
                             .withClaim("email", post.email)
-                            .withClaim("userId", user.id.toString())  // Agregar la ID del usuario a las claims
+                            .withClaim("userId", user.id?.value)  // Agregar la ID del usuario a las claims
                             .withExpiresAt(Date(System.currentTimeMillis() + 86_400_000)) // 24 hour validity
                             .sign(Algorithm.HMAC256(secret))
 
@@ -100,60 +100,61 @@ fun Application.configureRouting() {
             }
         }
         authenticate("jwt-auth") {
-            route("/secure") {route("/categorias") {
-                post {
-                    val idUsuario = obtenerIdUsuarioDesdeToken(call)
-                    if (idUsuario != null && Usuario.esAdministrador(idUsuario)) {
-                        val categoriaDto = call.receive<Categoria.Companion.CategoriaDto>()
-                        val success = Categoria.crearCategoria(categoriaDto.nombre)
-                        if (success) call.respond(HttpStatusCode.Created)
-                        else call.respond(HttpStatusCode.BadRequest, "No se pudo crear la categoría")
-                    } else {
-                        call.respond(HttpStatusCode.Forbidden)
-                    }
-                }
-
-                get {
-                    val categorias = Categoria.obtenerCategorias()
-                    call.respond(categorias)
-                }
-
-                get("/{id}") {
-                    val id = call.parameters["id"]?.toIntOrNull()
-                    val categoria = id?.let { Categoria.obtenerCategoria(it) }
-                    if (categoria != null) call.respond(categoria)
-                    else call.respond(HttpStatusCode.NotFound)
-                }
-
-                put("/{id}") {
-                    val idUsuario = obtenerIdUsuarioDesdeToken(call)
-                    if (idUsuario != null && Usuario.esAdministrador(idUsuario)) {
-                        val categoriaDto = call.receive<Categoria.Companion.CategoriaDto>()
-                        val id = call.parameters["id"]?.toIntOrNull()
-                        if (id != null && Categoria.actualizarCategoria(id, categoriaDto.nombre)) {
-                            call.respond(HttpStatusCode.OK)
+            route("/secure") {
+                route("/categorias") {
+                    post {
+                        val idUsuario = obtenerIdUsuarioDesdeToken(call)
+                        if (idUsuario != null && Usuario.esAdministrador(idUsuario)) {
+                            val categoriaDto = call.receive<Categoria.Companion.CategoriaDto>()
+                            val success = Categoria.crearCategoria(categoriaDto.nombre)
+                            if (success) call.respond(HttpStatusCode.Created)
+                            else call.respond(HttpStatusCode.BadRequest, "No se pudo crear la categoría")
                         } else {
-                            call.respond(HttpStatusCode.NotFound)
+                            call.respond(HttpStatusCode.Forbidden)
                         }
-                    } else {
-                        call.respond(HttpStatusCode.Forbidden)
                     }
-                }
 
-                delete("/{id}") {
-                    val idUsuario = obtenerIdUsuarioDesdeToken(call)
-                    if (idUsuario != null && Usuario.esAdministrador(idUsuario)) {
+                    get {
+                        val categorias = Categoria.obtenerCategorias()
+                        call.respond(categorias)
+                    }
+
+                    get("/{id}") {
                         val id = call.parameters["id"]?.toIntOrNull()
-                        if (id != null && Categoria.eliminarCategoria(id)) {
-                            call.respond(HttpStatusCode.NoContent)
+                        val categoria = id?.let { Categoria.obtenerCategoria(it) }
+                        if (categoria != null) call.respond(categoria)
+                        else call.respond(HttpStatusCode.NotFound)
+                    }
+
+                    put("/{id}") {
+                        val idUsuario = obtenerIdUsuarioDesdeToken(call)
+                        if (idUsuario != null && Usuario.esAdministrador(idUsuario)) {
+                            val categoriaDto = call.receive<Categoria.Companion.CategoriaDto>()
+                            val id = call.parameters["id"]?.toIntOrNull()
+                            if (id != null && Categoria.actualizarCategoria(id, categoriaDto.nombre)) {
+                                call.respond(HttpStatusCode.OK)
+                            } else {
+                                call.respond(HttpStatusCode.NotFound)
+                            }
                         } else {
-                            call.respond(HttpStatusCode.NotFound)
+                            call.respond(HttpStatusCode.Forbidden)
                         }
-                    } else {
-                        call.respond(HttpStatusCode.Forbidden)
+                    }
+
+                    delete("/{id}") {
+                        val idUsuario = obtenerIdUsuarioDesdeToken(call)
+                        if (idUsuario != null && Usuario.esAdministrador(idUsuario)) {
+                            val id = call.parameters["id"]?.toIntOrNull()
+                            if (id != null && Categoria.eliminarCategoria(id)) {
+                                call.respond(HttpStatusCode.NoContent)
+                            } else {
+                                call.respond(HttpStatusCode.NotFound)
+                            }
+                        } else {
+                            call.respond(HttpStatusCode.Forbidden)
+                        }
                     }
                 }
-            }
 
                 route("/chats") {
                     post {
@@ -205,8 +206,8 @@ fun Application.configureRouting() {
                 route("/clientes") {
                     post {
                         val idUsuario = obtenerIdUsuarioDesdeToken(call)
-                        if (idUsuario != null && Usuario.esAdministrador(idUsuario)) {
-                            val clienteDto = call.receive<Cliente.Companion.ClienteDto>()
+                        val clienteDto = call.receive<Cliente.Companion.ClienteDto>()
+                        if (idUsuario != null && (Usuario.esAdministrador(idUsuario) || idUsuario == clienteDto.idUsuario)) {
                             val success = Cliente.crearCliente(clienteDto.idUsuario, clienteDto.vip)
                             if (success) {
                                 call.respond(HttpStatusCode.Created)
@@ -220,8 +221,9 @@ fun Application.configureRouting() {
 
                     get {
                         val idUsuario = obtenerIdUsuarioDesdeToken(call)
-                        if (idUsuario != null && Usuario.esAdministrador(idUsuario)) {
+                        if (idUsuario != null) {
                             val clientes = Cliente.obtenerClientes()
+                                .filter { it.idUsuario == idUsuario || Usuario.esAdministrador(idUsuario) }
                             call.respond(clientes)
                         } else {
                             call.respond(HttpStatusCode.Forbidden)
@@ -230,9 +232,9 @@ fun Application.configureRouting() {
 
                     get("/{id}") {
                         val idUsuario = obtenerIdUsuarioDesdeToken(call)
-                        if (idUsuario != null && Usuario.esAdministrador(idUsuario)) {
-                            val id = call.parameters["id"]?.toIntOrNull()
-                            val cliente = id?.let { Cliente.obtenerCliente(it) }
+                        val id = call.parameters["id"]?.toIntOrNull()
+                        val cliente = id?.let { Cliente.obtenerCliente(it) }
+                        if (idUsuario != null && (cliente?.idUsuario == idUsuario || Usuario.esAdministrador(idUsuario))) {
                             if (cliente != null) {
                                 call.respond(cliente)
                             } else {
@@ -246,48 +248,39 @@ fun Application.configureRouting() {
                     put("/{id}") {
                         val idUsuario = obtenerIdUsuarioDesdeToken(call)
                         val id = call.parameters["id"]?.toIntOrNull()
-
-                        if (id != null && idUsuario != null) {
-                            val clienteDto = call.receive<Cliente.Companion.ClienteDto>()
-                            val cliente = Cliente.obtenerCliente(id)
-
-                            if (cliente != null && cliente.idUsuario == idUsuario) {
-                                val success = Cliente.actualizarCliente(id, clienteDto.idUsuario, clienteDto.vip)
-                                if (success) {
-                                    call.respond(HttpStatusCode.OK)
-                                } else {
-                                    call.respond(HttpStatusCode.BadRequest, "No se pudo actualizar el cliente")
-                                }
+                        val clienteDto = call.receive<Cliente.Companion.ClienteDto>()
+                        if (id != null && idUsuario != null && (idUsuario == clienteDto.idUsuario || Usuario.esAdministrador(
+                                idUsuario
+                            ))
+                        ) {
+                            val success = Cliente.actualizarCliente(id, clienteDto.idUsuario, clienteDto.vip)
+                            if (success) {
+                                call.respond(HttpStatusCode.OK)
                             } else {
-                                call.respond(HttpStatusCode.NotFound)
+                                call.respond(HttpStatusCode.BadRequest, "No se pudo actualizar el cliente")
                             }
                         } else {
-                            call.respond(HttpStatusCode.BadRequest)
+                            call.respond(HttpStatusCode.Forbidden)
                         }
                     }
 
                     delete("/{id}") {
                         val idUsuario = obtenerIdUsuarioDesdeToken(call)
                         val id = call.parameters["id"]?.toIntOrNull()
-
-                        if (id != null && idUsuario != null) {
-                            val cliente = Cliente.obtenerCliente(id)
-
-                            if (cliente != null && cliente.idUsuario == idUsuario) {
-                                val success = Cliente.eliminarCliente(id)
-                                if (success) {
-                                    call.respond(HttpStatusCode.NoContent)
-                                } else {
-                                    call.respond(HttpStatusCode.BadRequest, "No se pudo eliminar el cliente")
-                                }
+                        val cliente = id?.let { Cliente.obtenerCliente(it) }
+                        if (idUsuario != null && (cliente?.idUsuario == idUsuario || Usuario.esAdministrador(idUsuario))) {
+                            val success = id?.let { it1 -> Cliente.eliminarCliente(it1) }
+                            if (success == true) {
+                                call.respond(HttpStatusCode.NoContent)
                             } else {
-                                call.respond(HttpStatusCode.NotFound)
+                                call.respond(HttpStatusCode.BadRequest, "No se pudo eliminar el cliente")
                             }
                         } else {
-                            call.respond(HttpStatusCode.BadRequest)
+                            call.respond(HttpStatusCode.Forbidden)
                         }
                     }
                 }
+
 
                 route("/detalles-pedidos") {
                     post {
@@ -328,54 +321,73 @@ fun Application.configureRouting() {
                 }
                 route("/empleados") {
                     post {
+                        val idUsuario = obtenerIdUsuarioDesdeToken(call)
                         val empleadoDto = call.receive<Empleado.Companion.EmpleadoDto>()
-                        val success = Empleado.crearEmpleado(empleadoDto.idUsuario, empleadoDto.rol)
-                        if (success) {
-                            call.respond(HttpStatusCode.Created)
+                        if (idUsuario != null && Usuario.esAdministrador(idUsuario)) {
+                            val success = Empleado.crearEmpleado(empleadoDto.idUsuario, empleadoDto.rol)
+                            if (success) {
+                                call.respond(HttpStatusCode.Created)
+                            } else {
+                                call.respond(HttpStatusCode.BadRequest, "No se pudo crear el empleado")
+                            }
                         } else {
-                            call.respond(HttpStatusCode.BadRequest, "No se pudo crear el empleado")
+                            call.respond(HttpStatusCode.Forbidden)
                         }
                     }
 
                     get {
-                        val empleados = Empleado.obtenerEmpleados()
-                        call.respond(empleados)
+                        val idUsuario = obtenerIdUsuarioDesdeToken(call)
+                        if (idUsuario != null && Usuario.esAdministrador(idUsuario)) {
+                            val empleados = Empleado.obtenerEmpleados()
+                            call.respond(empleados)
+                        } else {
+                            call.respond(HttpStatusCode.Forbidden)
+                        }
                     }
 
                     get("/{id}") {
+                        val idUsuario = obtenerIdUsuarioDesdeToken(call)
                         val id = call.parameters["id"]?.toIntOrNull()
                         val empleado = id?.let { Empleado.obtenerEmpleado(it) }
-                        if (empleado != null) {
-                            call.respond(empleado)
+                        if (idUsuario != null && Usuario.esAdministrador(idUsuario)) {
+                            if (empleado != null) {
+                                call.respond(empleado)
+                            } else {
+                                call.respond(HttpStatusCode.NotFound)
+                            }
                         } else {
-                            call.respond(HttpStatusCode.NotFound)
+                            call.respond(HttpStatusCode.Forbidden)
                         }
                     }
 
                     put("/{id}") {
-                        val empleadoDto = call.receive<Empleado.Companion.EmpleadoDto>()
+                        val idUsuario = obtenerIdUsuarioDesdeToken(call)
                         val id = call.parameters["id"]?.toIntOrNull()
-                        val success = id?.let {
-                            Empleado.actualizarEmpleado(
-                                it,
-                                empleadoDto.idUsuario,
-                                empleadoDto.rol
-                            )
-                        }
-                        if (success == true) {
-                            call.respond(HttpStatusCode.OK)
+                        val empleadoDto = call.receive<Empleado.Companion.EmpleadoDto>()
+                        if (id != null && idUsuario != null && Usuario.esAdministrador(idUsuario)) {
+                            val success = Empleado.actualizarEmpleado(id, empleadoDto.idUsuario, empleadoDto.rol)
+                            if (success) {
+                                call.respond(HttpStatusCode.OK)
+                            } else {
+                                call.respond(HttpStatusCode.BadRequest, "No se pudo actualizar el empleado")
+                            }
                         } else {
-                            call.respond(HttpStatusCode.NotFound)
+                            call.respond(HttpStatusCode.Forbidden)
                         }
                     }
 
                     delete("/{id}") {
+                        val idUsuario = obtenerIdUsuarioDesdeToken(call)
                         val id = call.parameters["id"]?.toIntOrNull()
-                        val success = id?.let { Empleado.eliminarEmpleado(it) }
-                        if (success == true) {
-                            call.respond(HttpStatusCode.NoContent)
+                        if (id != null && idUsuario != null && Usuario.esAdministrador(idUsuario)) {
+                            val success = Empleado.eliminarEmpleado(id)
+                            if (success) {
+                                call.respond(HttpStatusCode.NoContent)
+                            } else {
+                                call.respond(HttpStatusCode.BadRequest, "No se pudo eliminar el empleado")
+                            }
                         } else {
-                            call.respond(HttpStatusCode.NotFound)
+                            call.respond(HttpStatusCode.Forbidden)
                         }
                     }
                 }
@@ -468,81 +480,80 @@ fun Application.configureRouting() {
                 }
                 route("/pedidos") {
                     post {
+                        val idUsuario = obtenerIdUsuarioDesdeToken(call)
+                        val cliente = Cliente.obtenerClientePorUsuario(idUsuario!!)
                         val pedidoDto = call.receive<Pedido.Companion.PedidoDto>()
-                        val estadoPedido = Pedidos.EstadoPedido.valueOf(pedidoDto.estado)
-                        val success = Pedido.crearPedido(pedidoDto.idCliente, estadoPedido)
-                        if (success) {
-                            call.respond(HttpStatusCode.Created)
+                        if (cliente != null && (Usuario.esAdministrador(idUsuario) || cliente.id.value == pedidoDto.idCliente)) {
+                            val estadoPedido = Pedidos.EstadoPedido.valueOf(pedidoDto.estado)
+                            val success = Pedido.crearPedido(cliente.id.value, estadoPedido)
+                            if (success) {
+                                call.respond(HttpStatusCode.Created)
+                            } else {
+                                call.respond(HttpStatusCode.BadRequest, "No se pudo crear el pedido")
+                            }
                         } else {
-                            call.respond(HttpStatusCode.BadRequest, "No se pudo crear el pedido")
-                        }
-                    }
-
-                    delete("/{id}") {
-                        val id = call.parameters["id"]?.toIntOrNull()
-                        val success = id?.let { Pedido.borrarPedido(it) }
-                        if (success == true) {
-                            call.respond(HttpStatusCode.NoContent)
-                        } else {
-                            call.respond(HttpStatusCode.NotFound)
-                        }
-                    }
-
-                    put("/{id}") {
-                        val pedidoDto = call.receive<Pedido.Companion.PedidoDto>()
-                        val id = call.parameters["id"]?.toIntOrNull()
-                        val success = id?.let {
-                            Pedido.actualizarPedido(
-                                it,
-                                Pedidos.EstadoPedido.valueOf(pedidoDto.estado)
-                            )
-                        }
-                        if (success == true) {
-                            call.respond(HttpStatusCode.OK)
-                        } else {
-                            call.respond(HttpStatusCode.NotFound)
+                            call.respond(HttpStatusCode.Forbidden)
                         }
                     }
 
                     get {
-                        val pedidos = Pedido.obtenerPedidos()
-                        call.respond(pedidos)
-                    }
-                }
-                route("/productos") {
-                    post {
-                        val productoDto = call.receive<Producto.Companion.ProductoDto>()
-                        val success = Producto.crearProducto(
-                            productoDto.nombre,
-                            productoDto.descripcion,
-                            productoDto.precio,
-                            productoDto.stock,
-                            productoDto.idCategoria,
-                            productoDto.imagen
-                        )
-                        if (success) {
-                            call.respond(HttpStatusCode.Created)
+                        val idUsuario = obtenerIdUsuarioDesdeToken(call)
+                        if (Usuario.esAdministrador(idUsuario!!)) {
+                            val pedidos = Pedido.obtenerPedidos()
+                            call.respond(pedidos)
                         } else {
-                            call.respond(HttpStatusCode.BadRequest, "No se pudo crear el producto")
-                        }
-                    }
-
-                    delete("/{id}") {
-                        val id = call.parameters["id"]?.toIntOrNull()
-                        val success = id?.let { Producto.borrarProducto(it) }
-                        if (success == true) {
-                            call.respond(HttpStatusCode.NoContent)
-                        } else {
-                            call.respond(HttpStatusCode.NotFound)
+                            val cliente = Cliente.obtenerClientePorUsuario(idUsuario)
+                            if (cliente != null) {
+                                val pedidos = Pedido.obtenerPedidosPorUsuario(cliente.id.value)
+                                call.respond(pedidos)
+                            } else {
+                                call.respond(HttpStatusCode.Forbidden)
+                            }
                         }
                     }
 
                     put("/{id}") {
-                        val productoDto = call.receive<Producto.Companion.ProductoDto>()
+                        val idUsuario = obtenerIdUsuarioDesdeToken(call)
+                        val pedidoDto = call.receive<Pedido.Companion.PedidoDto>()
                         val id = call.parameters["id"]?.toIntOrNull()
-                        val success = id?.let {
-                            Producto.actualizarProducto(
-                                it,
+                        val cliente = Cliente.obtenerClientePorUsuario(idUsuario!!)
+                        if (cliente != null && (Usuario.esAdministrador(idUsuario) || cliente.id.value == pedidoDto.idCliente)) {
+                            val success = Pedido.actualizarPedido(
+                                id!!,
+                                Pedidos.EstadoPedido.valueOf(pedidoDto.estado)
+                            )
+                            if (success) {
+                                call.respond(HttpStatusCode.OK)
+                            } else {
+                                call.respond(HttpStatusCode.BadRequest, "No se pudo actualizar el pedido")
+                            }
+                        } else {
+                            call.respond(HttpStatusCode.Forbidden)
+                        }
+                    }
+
+                    delete("/{id}") {
+                        val idUsuario = obtenerIdUsuarioDesdeToken(call)
+                        val id = call.parameters["id"]?.toIntOrNull()
+                        val cliente = Cliente.obtenerClientePorUsuario(idUsuario!!)
+                        if (cliente != null && (Usuario.esAdministrador(idUsuario) || cliente.id.value == id)) {
+                            val success = Pedido.borrarPedido(id!!)
+                            if (success) {
+                                call.respond(HttpStatusCode.NoContent)
+                            } else {
+                                call.respond(HttpStatusCode.BadRequest, "No se pudo eliminar el pedido")
+                            }
+                        } else {
+                            call.respond(HttpStatusCode.Forbidden)
+                        }
+                    }
+                }
+                route("/productos") {
+                    post {
+                        val idUsuario = obtenerIdUsuarioDesdeToken(call)
+                        if (Usuario.esAdministrador(idUsuario)) {
+                            val productoDto = call.receive<Producto.Companion.ProductoDto>()
+                            val success = Producto.crearProducto(
                                 productoDto.nombre,
                                 productoDto.descripcion,
                                 productoDto.precio,
@@ -550,11 +561,54 @@ fun Application.configureRouting() {
                                 productoDto.idCategoria,
                                 productoDto.imagen
                             )
-                        }
-                        if (success == true) {
-                            call.respond(HttpStatusCode.OK)
+                            if (success) {
+                                call.respond(HttpStatusCode.Created)
+                            } else {
+                                call.respond(HttpStatusCode.BadRequest, "No se pudo crear el producto")
+                            }
                         } else {
-                            call.respond(HttpStatusCode.NotFound)
+                            call.respond(HttpStatusCode.Forbidden)
+                        }
+                    }
+
+                    delete("/{id}") {
+                        val idUsuario = obtenerIdUsuarioDesdeToken(call)
+                        if (Usuario.esAdministrador(idUsuario)) {
+                            val id = call.parameters["id"]?.toIntOrNull()
+                            val success = id?.let { Producto.borrarProducto(it) }
+                            if (success == true) {
+                                call.respond(HttpStatusCode.NoContent)
+                            } else {
+                                call.respond(HttpStatusCode.NotFound)
+                            }
+                        } else {
+                            call.respond(HttpStatusCode.Forbidden)
+                        }
+                    }
+
+                    put("/{id}") {
+                        val idUsuario = obtenerIdUsuarioDesdeToken(call)
+                        if (Usuario.esAdministrador(idUsuario!!)) {
+                            val productoDto = call.receive<Producto.Companion.ProductoDto>()
+                            val id = call.parameters["id"]?.toIntOrNull()
+                            val success = id?.let {
+                                Producto.actualizarProducto(
+                                    it,
+                                    productoDto.nombre,
+                                    productoDto.descripcion,
+                                    productoDto.precio,
+                                    productoDto.stock,
+                                    productoDto.idCategoria,
+                                    productoDto.imagen
+                                )
+                            }
+                            if (success == true) {
+                                call.respond(HttpStatusCode.OK)
+                            } else {
+                                call.respond(HttpStatusCode.NotFound)
+                            }
+                        } else {
+                            call.respond(HttpStatusCode.Forbidden)
                         }
                     }
 
@@ -565,44 +619,65 @@ fun Application.configureRouting() {
                 }
                 route("/valoraciones") {
                     post {
-                        val valoracionDto = call.receive<Valoracion.Companion.ValoracionDto>()
-                        val success = Valoracion.crearValoracion(
-                            valoracionDto.idCliente,
-                            valoracionDto.idProducto,
-                            valoracionDto.puntuacion,
-                            valoracionDto.comentario
-                        )
-                        if (success) {
-                            call.respond(HttpStatusCode.Created)
+                        val idUsuario = obtenerIdUsuarioDesdeToken(call)
+                        if (Usuario.esCliente(idUsuario)) {
+                            val valoracionDto = call.receive<Valoracion.Companion.ValoracionDto>()
+                            val success = Valoracion.crearValoracion(
+                                valoracionDto.idCliente,
+                                valoracionDto.idProducto,
+                                valoracionDto.puntuacion,
+                                valoracionDto.comentario
+                            )
+                            if (success) {
+                                call.respond(HttpStatusCode.Created)
+                            } else {
+                                call.respond(HttpStatusCode.BadRequest, "No se pudo crear la valoración")
+                            }
                         } else {
-                            call.respond(HttpStatusCode.BadRequest, "No se pudo crear la valoración")
+                            call.respond(HttpStatusCode.Forbidden)
                         }
                     }
 
                     delete("/{id}") {
-                        val id = call.parameters["id"]?.toIntOrNull()
-                        val success = id?.let { Valoracion.borrarValoracion(it) }
-                        if (success == true) {
-                            call.respond(HttpStatusCode.NoContent)
+                        val idUsuario = obtenerIdUsuarioDesdeToken(call)
+                        if (Usuario.esCliente(idUsuario)) {
+                            val id = call.parameters["id"]?.toIntOrNull()
+                            if (id != null && Valoracion.esPropietario(idUsuario, id)) {
+                                val success = Valoracion.borrarValoracion(id)
+                                if (success) {
+                                    call.respond(HttpStatusCode.NoContent)
+                                } else {
+                                    call.respond(HttpStatusCode.NotFound)
+                                }
+                            } else {
+                                call.respond(HttpStatusCode.Forbidden)
+                            }
                         } else {
-                            call.respond(HttpStatusCode.NotFound)
+                            call.respond(HttpStatusCode.Forbidden)
                         }
                     }
 
                     put("/{id}") {
-                        val valoracionDto = call.receive<Valoracion.Companion.ValoracionDto>()
-                        val id = call.parameters["id"]?.toIntOrNull()
-                        val success = id?.let {
-                            Valoracion.actualizarValoracion(
-                                it,
-                                valoracionDto.puntuacion,
-                                valoracionDto.comentario
-                            )
-                        }
-                        if (success == true) {
-                            call.respond(HttpStatusCode.OK)
+                        val idUsuario = obtenerIdUsuarioDesdeToken(call)
+                        if (Usuario.esCliente(idUsuario)) {
+                            val valoracionDto = call.receive<Valoracion.Companion.ValoracionDto>()
+                            val id = call.parameters["id"]?.toIntOrNull()
+                            if (id != null && Valoracion.esPropietario(idUsuario, id)) {
+                                val success = Valoracion.actualizarValoracion(
+                                    id,
+                                    valoracionDto.puntuacion,
+                                    valoracionDto.comentario
+                                )
+                                if (success) {
+                                    call.respond(HttpStatusCode.OK)
+                                } else {
+                                    call.respond(HttpStatusCode.NotFound)
+                                }
+                            } else {
+                                call.respond(HttpStatusCode.Forbidden)
+                            }
                         } else {
-                            call.respond(HttpStatusCode.NotFound)
+                            call.respond(HttpStatusCode.Forbidden)
                         }
                     }
 
@@ -620,52 +695,58 @@ fun Application.configureRouting() {
                         }
                     }
                 }
+
                 route("/usuarios") {
                     post("/crear") {
-                        val usuarioDto = call.receive<Usuario.Companion.UsuarioDto>()
-                        val resultado = Usuario.crearUsuario(usuarioDto)
-                        if (resultado) {
-                            call.respond(HttpStatusCode.Created, "Usuario creado correctamente")
+                        val idUsuario = obtenerIdUsuarioDesdeToken(call)
+                        if (Usuario.esAdministrador(idUsuario)) {
+                            val usuarioDto = call.receive<Usuario.Companion.UsuarioDto>()
+                            val resultado = Usuario.crearUsuario(usuarioDto)
+                            if (resultado) {
+                                call.respond(HttpStatusCode.Created, "Usuario creado correctamente")
+                            } else {
+                                call.respond(HttpStatusCode.BadRequest, "No se pudo crear el usuario")
+                            }
                         } else {
-                            call.respond(HttpStatusCode.BadRequest, "No se pudo crear el usuario")
+                            call.respond(HttpStatusCode.Forbidden)
                         }
                     }
 
-                    delete("/eliminar/{id}") {
-                        val id = call.parameters["id"]?.toIntOrNull()
-                        if (id != null) {
-                            val resultado = Usuario.eliminarUsuario(id)
+                    delete("/eliminar") {
+                        val idUsuario = obtenerIdUsuarioDesdeToken(call)
+                        if (idUsuario != null) {
+                            val resultado = Usuario.eliminarUsuario(idUsuario)
                             if (resultado) {
                                 call.respond(HttpStatusCode.OK, "Usuario eliminado correctamente")
                             } else {
-                                call.respond(HttpStatusCode.NotFound, "No se encontró el usuario con ID: $id")
+                                call.respond(HttpStatusCode.NotFound, "No se encontró el usuario con ID: $idUsuario")
                             }
                         } else {
                             call.respond(HttpStatusCode.BadRequest, "ID de usuario no válido")
                         }
                     }
 
-                    put("/actualizar/{id}") {
-                        val id = call.parameters["id"]?.toIntOrNull()
-                        if (id != null) {
+                    put("/actualizar") {
+                        val idUsuario = obtenerIdUsuarioDesdeToken(call)
+                        if (idUsuario != null) {
                             val usuarioDto = call.receive<Usuario.Companion.UsuarioDto>()
-                            val resultado = Usuario.actualizarUsuario(id, usuarioDto)
+                            val resultado = Usuario.actualizarUsuario(idUsuario, usuarioDto)
                             if (resultado) {
                                 call.respond(HttpStatusCode.OK, "Usuario actualizado correctamente")
                             } else {
-                                call.respond(HttpStatusCode.NotFound, "No se encontró el usuario con ID: $id")
+                                call.respond(HttpStatusCode.NotFound, "No se encontró el usuario con ID: $idUsuario")
                             }
                         } else {
                             call.respond(HttpStatusCode.BadRequest, "ID de usuario no válido")
                         }
                     }
-
                 }
-            }
+
             }
         }
 
     }
+}
 
 
 
