@@ -14,9 +14,11 @@ object Pedidos : IntIdTable() {
     val fecha_pedido: Column<LocalDate> = date("fecha_pedido")
 
     enum class EstadoPedido {
+
         PENDIENTE,
         ENVIADO,
-        ENTREGADO
+        ENTREGADO,
+        EN_PROCESO
     }
 }
 
@@ -29,6 +31,11 @@ class Pedido(id: EntityID<Int>) : IntEntity(id) {
         )
 
         fun crearPedido(idCliente: Int, estado: Pedidos.EstadoPedido): Boolean {
+            if (idCliente <= 0) {
+                println("ID de cliente no válido.")
+                return false
+            }
+
             return transaction {
                 try {
                     // Verificar si el ID de cliente existe
@@ -54,6 +61,11 @@ class Pedido(id: EntityID<Int>) : IntEntity(id) {
         }
 
         fun borrarPedido(idPedido: Int): Boolean {
+            if (idPedido <= 0) {
+                println("ID de pedido no válido.")
+                return false
+            }
+
             return transaction {
                 try {
                     // Buscar el pedido por su ID
@@ -78,6 +90,11 @@ class Pedido(id: EntityID<Int>) : IntEntity(id) {
             idPedido: Int,
             nuevoEstado: Pedidos.EstadoPedido? = null
         ): Boolean {
+            if (idPedido <= 0 || nuevoEstado == null) {
+                println("Datos ingresados no válidos.")
+                return false
+            }
+
             return transaction {
                 try {
                     // Buscar el pedido por su ID

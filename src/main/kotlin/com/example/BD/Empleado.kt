@@ -30,6 +30,11 @@ class Empleado(id: EntityID<Int>) : IntEntity(id) {
         )
 
         fun crearEmpleado(idUsuario: Int, rol: String): Boolean {
+            if (idUsuario <= 0 || rol.isEmpty()) {
+                println("Datos ingresados no válidos.")
+                return false
+            }
+
             return transaction {
                 try {
                     // Verificar si el ID de usuario existe
@@ -39,10 +44,17 @@ class Empleado(id: EntityID<Int>) : IntEntity(id) {
                         return@transaction false
                     }
 
+                    // Verificar si el rol es válido
+                    val rolEmpleado = Empleados.RolEmpleado.values().find { it.name == rol }
+                    if (rolEmpleado == null) {
+                        println("El rol $rol no existe.")
+                        return@transaction false
+                    }
+
                     // Crear el nuevo empleado
                     Empleado.new {
                         this.id_usuario = usuario
-                        this.rol = Empleados.RolEmpleado.valueOf(rol)
+                        this.rol = rolEmpleado
                     }
 
                     return@transaction true
@@ -73,6 +85,11 @@ class Empleado(id: EntityID<Int>) : IntEntity(id) {
         }
 
         fun actualizarEmpleado(id: Int, idUsuario: Int? = null, rol: String? = null): Boolean {
+            if (id <= 0 || (idUsuario != null && idUsuario <= 0) || (rol != null && rol.isEmpty())) {
+                println("Datos ingresados no válidos.")
+                return false
+            }
+
             return transaction {
                 try {
                     // Buscar el empleado por su ID
@@ -92,7 +109,12 @@ class Empleado(id: EntityID<Int>) : IntEntity(id) {
                         empleado.id_usuario = usuario
                     }
                     if (rol != null) {
-                        empleado.rol = Empleados.RolEmpleado.valueOf(rol)
+                        val rolEmpleado = Empleados.RolEmpleado.values().find { it.name == rol }
+                        if (rolEmpleado == null) {
+                            println("El rol $rol no existe.")
+                            return@transaction false
+                        }
+                        empleado.rol = rolEmpleado
                     }
 
                     return@transaction true
@@ -104,6 +126,11 @@ class Empleado(id: EntityID<Int>) : IntEntity(id) {
         }
 
         fun eliminarEmpleado(id: Int): Boolean {
+            if (id <= 0) {
+                println("ID de empleado no válido.")
+                return false
+            }
+
             return transaction {
                 try {
                     // Buscar el empleado por su ID

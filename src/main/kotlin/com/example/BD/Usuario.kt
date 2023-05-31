@@ -35,6 +35,88 @@ class Usuario(id: EntityID<Int>) : IntEntity(id) {
             val rol: String
         )
 
+        fun crearUsuario(usuarioDto: UsuarioDto): Boolean {
+            if (usuarioDto.nombre.isBlank() || usuarioDto.direccion.isBlank() || usuarioDto.telefono.isBlank() || usuarioDto.email.isBlank() || usuarioDto.contraseña.isBlank()) {
+                println("Datos del usuario no válidos.")
+                return false
+            }
+
+            return registrar(usuarioDto)
+        }
+
+        fun eliminarUsuario(id: Int): Boolean {
+            if (id <= 0) {
+                println("ID de usuario no válido.")
+                return false
+            }
+
+            return transaction {
+                try {
+                    val usuario = Usuario.findById(id)
+                    if (usuario != null) {
+                        val cliente = Cliente.find { Clientes.id_usuario eq usuario.id }.singleOrNull()
+                        val empleado = Empleado.find { Empleados.id_usuario eq usuario.id }.singleOrNull()
+
+                        cliente?.delete()
+                        empleado?.delete()
+
+                        usuario.delete()
+                        return@transaction true
+                    } else {
+                        println("No se pudo encontrar el usuario con ID: $id")
+                        return@transaction false
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    return@transaction false
+                }
+            }
+        }
+
+        fun actualizarUsuario(id: Int, usuarioDto: UsuarioDto): Boolean {
+            if (id <= 0 || usuarioDto.nombre.isBlank() || usuarioDto.direccion.isBlank() || usuarioDto.telefono.isBlank() || usuarioDto.email.isBlank() || usuarioDto.contraseña.isBlank()) {
+                println("Datos del usuario no válidos.")
+                return false
+            }
+
+            return transaction {
+                try {
+                    val usuario = Usuario.findById(id)
+                    if (usuario != null) {
+                        usuario.nombre = usuarioDto.nombre
+                        usuario.direccion = usuarioDto.direccion
+                        usuario.telefono = usuarioDto.telefono
+                        usuario.email = usuarioDto.email
+                        usuario.contraseña = cifrarContraseña(usuarioDto.contraseña)
+                        return@transaction true
+                    } else {
+                        println("No se pudo encontrar el usuario con ID: $id")
+                        return@transaction false
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    return@transaction false
+                }
+            }
+        }
+
+        fun esAdministrador(id: Int): Boolean {
+            if (id <= 0) {
+                println("ID de usuario no válido.")
+                return false
+            }
+
+            return transaction {
+                val usuario = Usuario.findById(id)
+                val empleado = Empleado.find { Empleados.id_usuario eq id }
+                empleado.any { it.rol == Empleados.RolEmpleado.ADMINISTRADOR }
+            }
+        }
+
+        private fun cifrarContraseña(contraseña: String): String {
+            return BCrypt.hashpw(contraseña, BCrypt.gensalt())
+        }
+
         fun registrar(usuarioDto: UsuarioDto): Boolean {
             return transaction {
                 try {
@@ -52,44 +134,9 @@ class Usuario(id: EntityID<Int>) : IntEntity(id) {
                         contraseña = contraseñaCifrada
                     }
 
-                    // Crear instancia en la tabla "Clientes"
                     Cliente.new {
                         id_usuario = nuevoUsuario
                         vip = false
-                    }
-
-                    true
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                    false
-                }
-            }
-        }
-
-        fun registrarEmpleado(empleadoDto: EmpleadoDto): Boolean {
-            return transaction {
-                try {
-                    validarEmailUnico(empleadoDto.email)
-                    validarTelefonoUnico(empleadoDto.telefono)
-                    validarContraseña(empleadoDto.contraseña)
-
-                    val contraseñaCifrada = cifrarContraseña(empleadoDto.contraseña)
-
-                    val nuevoUsuario = Usuario.new {
-                        nombre = empleadoDto.nombre
-                        direccion = empleadoDto.direccion
-                        telefono = empleadoDto.telefono
-                        email = empleadoDto.email
-                        contraseña = contraseñaCifrada
-                    }
-
-                    // Convertir el string de rol a una instancia de RolEmpleado
-                    val rolEmpleado = Empleados.RolEmpleado.valueOf(empleadoDto.rol.toUpperCase())
-
-                    // Crear instancia en la tabla "Empleados"
-                    Empleado.new {
-                        id_usuario = nuevoUsuario
-                        rol = rolEmpleado
                     }
 
                     return@transaction true
@@ -100,18 +147,14 @@ class Usuario(id: EntityID<Int>) : IntEntity(id) {
             }
         }
 
-        private fun cifrarContraseña(contraseña: String): String {
-            return BCrypt.hashpw(contraseña, BCrypt.gensalt())
-        }
-
         private fun validarEmailUnico(email: String) {
-            if (transaction { Usuario.find { Usuarios.email eq email }.count() > 0 }) {
+            if (Usuario.find { Usuarios.email eq email }.count() > 0) {
                 throw IllegalArgumentException("El email ya está registrado")
             }
         }
 
         private fun validarTelefonoUnico(telefono: String) {
-            if (transaction { Usuario.find { Usuarios.telefono eq telefono }.count() > 0 }) {
+            if (Usuario.find { Usuarios.telefono eq telefono }.count() > 0) {
                 throw IllegalArgumentException("El teléfono ya está registrado")
             }
         }
@@ -121,17 +164,6 @@ class Usuario(id: EntityID<Int>) : IntEntity(id) {
             if (!contraseña.matches(regex)) {
                 throw IllegalArgumentException("La contraseña debe contener al menos una letra mayúscula y un número")
             }
-        }
-
-        fun obtenerUsuarioPorEmail(email: String): Usuario? {
-            return transaction {
-                Usuario.find { Usuarios.email eq email }.singleOrNull()
-            }
-        }
-
-        fun login(email: String, contraseña: String): Boolean {
-            val usuario = obtenerUsuarioPorEmail(email)
-            return usuario != null && BCrypt.checkpw(contraseña, usuario.contraseña)
         }
     }
 

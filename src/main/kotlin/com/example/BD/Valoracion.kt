@@ -32,6 +32,11 @@ class Valoracion(id: EntityID<Int>) : IntEntity(id) {
             puntuacion: Int,
             comentario: String?
         ): Boolean {
+            if (idCliente <= 0 || idProducto <= 0 || puntuacion <= 0) {
+                println("Datos ingresados no válidos.")
+                return false
+            }
+
             return transaction {
                 try {
                     // Verificar si el ID de cliente existe
@@ -66,6 +71,11 @@ class Valoracion(id: EntityID<Int>) : IntEntity(id) {
         }
 
         fun borrarValoracion(idValoracion: Int): Boolean {
+            if (idValoracion <= 0) {
+                println("ID de valoración no válido.")
+                return false
+            }
+
             return transaction {
                 try {
                     // Buscar la valoración por su ID
@@ -91,6 +101,11 @@ class Valoracion(id: EntityID<Int>) : IntEntity(id) {
             nuevaPuntuacion: Int? = null,
             nuevoComentario: String? = null
         ): Boolean {
+            if (idValoracion <= 0 || (nuevaPuntuacion != null && nuevaPuntuacion <= 0)) {
+                println("Datos ingresados no válidos.")
+                return false
+            }
+
             return transaction {
                 try {
                     // Buscar la valoración por su ID
@@ -104,7 +119,7 @@ class Valoracion(id: EntityID<Int>) : IntEntity(id) {
                     if (nuevaPuntuacion != null) {
                         valoracion.puntuacion = nuevaPuntuacion
                     }
-                    if (nuevoComentario != null) {
+                    if (nuevoComentario != null && !nuevoComentario.isBlank()) {
                         valoracion.comentario = nuevoComentario
                     }
 
@@ -117,6 +132,11 @@ class Valoracion(id: EntityID<Int>) : IntEntity(id) {
         }
 
         fun obtenerPuntuacionMediaPorProducto(idProducto: Int): BigDecimal? {
+            if (idProducto <= 0) {
+                println("ID de producto no válido.")
+                return null
+            }
+
             return transaction {
                 val producto = Producto.findById(idProducto)
                 if (producto != null) {

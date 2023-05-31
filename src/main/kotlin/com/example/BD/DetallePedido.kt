@@ -1,4 +1,3 @@
-import Categorias.entityId
 import kotlinx.serialization.Serializable
 import org.jetbrains.exposed.dao.IntEntity
 import org.jetbrains.exposed.dao.IntEntityClass
@@ -22,19 +21,24 @@ class DetallePedido(id: EntityID<Int>) : IntEntity(id) {
             val cantidad: Int
         )
 
-        fun insertDetallePedido(idPedido: Int, idProducto: Int, cantidad: Int) {
-            transaction {
+        fun insertDetallePedido(idPedido: Int, idProducto: Int, cantidad: Int): Boolean {
+            if (idPedido <= 0 || idProducto <= 0 || cantidad <= 0) {
+                println("Datos ingresados no válidos.")
+                return false
+            }
+
+            return transaction {
                 val pedido = Pedido.findById(idPedido)
                 val producto = Producto.findById(idProducto)
 
                 if (pedido == null) {
                     println("Pedido no encontrado con el id: $idPedido")
-                    return@transaction
+                    return@transaction false
                 }
 
                 if (producto == null) {
                     println("Producto no encontrado con el id: $idProducto")
-                    return@transaction
+                    return@transaction false
                 }
 
                 DetallePedido.new {
@@ -43,10 +47,16 @@ class DetallePedido(id: EntityID<Int>) : IntEntity(id) {
                     this.cantidad = cantidad
                 }
                 println("Registro DetallePedido insertado con éxito")
+                return@transaction true
             }
         }
 
         fun borrarDetallePedido(idDetalle: Int): Boolean {
+            if (idDetalle <= 0) {
+                println("El ID del detalle de pedido no es válido.")
+                return false
+            }
+
             return transaction {
                 val detalle = DetallePedido.findById(idDetalle)
 
@@ -62,6 +72,11 @@ class DetallePedido(id: EntityID<Int>) : IntEntity(id) {
         }
 
         fun actualizarCantidadDetallePedido(idDetalle: Int, nuevaCantidad: Int): Boolean {
+            if (idDetalle <= 0 || nuevaCantidad <= 0) {
+                println("Datos ingresados no válidos.")
+                return false
+            }
+
             return transaction {
                 val detalle = DetallePedido.findById(idDetalle)
 
@@ -77,7 +92,7 @@ class DetallePedido(id: EntityID<Int>) : IntEntity(id) {
         }
     }
 
-    var id_pedido by Pedido referencedOn DetallesPedidos.id_pedido.entityId()
+    var id_pedido by Pedido referencedOn DetallesPedidos.id_pedido
     var id_producto by Producto referencedOn DetallesPedidos.id_producto
     var cantidad by DetallesPedidos.cantidad
 }

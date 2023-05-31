@@ -17,6 +17,12 @@ class Categoria(id: EntityID<Int>) : IntEntity(id) {
         )
 
         fun crearCategoria(nombre: String): Boolean {
+            // Verificar si el nombre está vacío o si es demasiado largo
+            if (nombre.isEmpty() || nombre.length > 50) {
+                println("El nombre de la categoría no puede estar vacío y debe tener 50 caracteres o menos.")
+                return false
+            }
+
             return transaction {
                 try {
                     // Verificar si la categoría ya existe
@@ -59,6 +65,12 @@ class Categoria(id: EntityID<Int>) : IntEntity(id) {
         }
 
         fun actualizarCategoria(id: Int, nuevoNombre: String): Boolean {
+            // Verificar si el nombre está vacío o si es demasiado largo
+            if (nuevoNombre.isEmpty() || nuevoNombre.length > 50) {
+                println("El nombre de la categoría no puede estar vacío y debe tener 50 caracteres o menos.")
+                return false
+            }
+
             return transaction {
                 try {
                     // Buscar la categoría por su ID

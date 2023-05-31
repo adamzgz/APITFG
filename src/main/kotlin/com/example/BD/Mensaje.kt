@@ -24,6 +24,11 @@ class Mensaje(id: EntityID<Int>) : IntEntity(id) {
         )
 
         fun crearMensaje(idChat: Int, idUsuario: Int, mensaje: String): Boolean {
+            if (idChat <= 0 || idUsuario <= 0 || mensaje.isBlank()) {
+                println("Datos ingresados no válidos.")
+                return false
+            }
+
             return transaction {
                 try {
                     // Verificar si el ID de chat existe
@@ -57,6 +62,11 @@ class Mensaje(id: EntityID<Int>) : IntEntity(id) {
         }
 
         fun borrarMensaje(idMensaje: Int): Boolean {
+            if (idMensaje <= 0) {
+                println("ID de mensaje no válido.")
+                return false
+            }
+
             return transaction {
                 try {
                     // Buscar el mensaje por su ID
@@ -78,6 +88,11 @@ class Mensaje(id: EntityID<Int>) : IntEntity(id) {
         }
 
         fun actualizarMensaje(idMensaje: Int, nuevoMensaje: String): Boolean {
+            if (idMensaje <= 0 || nuevoMensaje.isBlank()) {
+                println("Datos ingresados no válidos.")
+                return false
+            }
+
             return transaction {
                 try {
                     // Buscar el mensaje por su ID
@@ -99,6 +114,11 @@ class Mensaje(id: EntityID<Int>) : IntEntity(id) {
         }
 
         fun obtenerMensajesDeChat(idChat: Int): List<MensajeDto> {
+            if (idChat <= 0) {
+                println("ID de chat no válido.")
+                return emptyList()
+            }
+
             return transaction {
                 val chat = Chat.findById(idChat)
                 if (chat != null) {
@@ -110,6 +130,7 @@ class Mensaje(id: EntityID<Int>) : IntEntity(id) {
                         )
                     }
                 } else {
+                    println("El chat con ID $idChat no existe.")
                     return@transaction emptyList()
                 }
             }

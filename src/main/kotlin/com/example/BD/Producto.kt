@@ -29,6 +29,11 @@ class Producto(id: EntityID<Int>) : IntEntity(id) {
             idCategoria: Int,
             imagen: String
         ): Boolean {
+            if (nombre.isBlank() || descripcion.isBlank() || precio <= BigDecimal.ZERO || stock <= 0 || idCategoria <= 0 || imagen.isBlank()) {
+                println("Datos ingresados no válidos.")
+                return false
+            }
+
             return transaction {
                 try {
                     // Verificar si el ID de categoría existe
@@ -57,6 +62,11 @@ class Producto(id: EntityID<Int>) : IntEntity(id) {
         }
 
         fun borrarProducto(idProducto: Int): Boolean {
+            if (idProducto <= 0) {
+                println("ID de producto no válido.")
+                return false
+            }
+
             return transaction {
                 try {
                     // Buscar el producto por su ID
@@ -86,6 +96,11 @@ class Producto(id: EntityID<Int>) : IntEntity(id) {
             nuevoIdCategoria: Int? = null,
             nuevaImagen: String? = null
         ): Boolean {
+            if (idProducto <= 0 || (nuevoPrecio != null && nuevoPrecio <= BigDecimal.ZERO) || (nuevoStock != null && nuevoStock <= 0) || (nuevoIdCategoria != null && nuevoIdCategoria <= 0)) {
+                println("Datos ingresados no válidos.")
+                return false
+            }
+
             return transaction {
                 try {
                     // Buscar el producto por su ID
@@ -96,10 +111,10 @@ class Producto(id: EntityID<Int>) : IntEntity(id) {
                     }
 
                     // Verificar si se proporcionaron nuevos valores y actualizar el producto
-                    if (nuevoNombre != null) {
+                    if (nuevoNombre != null && !nuevoNombre.isBlank()) {
                         producto.nombre = nuevoNombre
                     }
-                    if (nuevaDescripcion != null) {
+                    if (nuevaDescripcion != null && !nuevaDescripcion.isBlank()) {
                         producto.descripcion = nuevaDescripcion
                     }
                     if (nuevoPrecio != null) {
@@ -116,7 +131,7 @@ class Producto(id: EntityID<Int>) : IntEntity(id) {
                         }
                         producto.categoria = nuevaCategoria
                     }
-                    if (nuevaImagen != null) {
+                    if (nuevaImagen != null && !nuevaImagen.isBlank()) {
                         producto.imagen = nuevaImagen
                     }
 

@@ -19,6 +19,12 @@ class Cliente(id: EntityID<Int>) : IntEntity(id) {
         )
 
         fun crearCliente(idUsuario: Int, vip: Boolean): Boolean {
+            // Validar idUsuario
+            if (idUsuario <= 0) {
+                println("El ID del usuario no es válido.")
+                return false
+            }
+
             return transaction {
                 try {
                     // Verificar si el ID de usuario existe
@@ -62,6 +68,12 @@ class Cliente(id: EntityID<Int>) : IntEntity(id) {
         }
 
         fun actualizarCliente(id: Int, idUsuario: Int? = null, vip: Boolean? = null): Boolean {
+            // Validar id
+            if (id <= 0) {
+                println("El ID del cliente no es válido.")
+                return false
+            }
+
             return transaction {
                 try {
                     // Buscar el cliente por su ID
@@ -93,6 +105,12 @@ class Cliente(id: EntityID<Int>) : IntEntity(id) {
         }
 
         fun eliminarCliente(id: Int): Boolean {
+            // Validar id
+            if (id <= 0) {
+                println("El ID del cliente no es válido.")
+                return false
+            }
+
             return transaction {
                 try {
                     // Buscar el cliente por su ID

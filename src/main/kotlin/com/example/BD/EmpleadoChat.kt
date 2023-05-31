@@ -18,19 +18,24 @@ class EmpleadoChat(id: EntityID<Int>) : IntEntity(id) {
             val idChat: Int
         )
 
-        fun insertEmpleadoChat(idEmpleado: Int, idChat: Int) {
-            transaction {
+        fun insertEmpleadoChat(idEmpleado: Int, idChat: Int): Boolean {
+            if (idEmpleado <= 0 || idChat <= 0) {
+                println("Datos ingresados no válidos.")
+                return false
+            }
+
+            return transaction {
                 val empleado = Empleado.findById(idEmpleado)
                 val chat = Chat.findById(idChat)
 
                 if (empleado == null) {
                     println("Empleado no encontrado con el id: $idEmpleado")
-                    return@transaction
+                    return@transaction false
                 }
 
                 if (chat == null) {
                     println("Chat no encontrado con el id: $idChat")
-                    return@transaction
+                    return@transaction false
                 }
 
                 EmpleadoChat.new {
@@ -38,10 +43,16 @@ class EmpleadoChat(id: EntityID<Int>) : IntEntity(id) {
                     this.id_chat = chat
                 }
                 println("Registro EmpleadoChat insertado con éxito")
+                return@transaction true
             }
         }
 
         fun borrarEmpleadoChat(idEmpleadoChat: Int): Boolean {
+            if (idEmpleadoChat <= 0) {
+                println("ID de EmpleadoChat no válido.")
+                return false
+            }
+
             return transaction {
                 val empleadoChat = EmpleadoChat.findById(idEmpleadoChat)
 
@@ -57,6 +68,11 @@ class EmpleadoChat(id: EntityID<Int>) : IntEntity(id) {
         }
 
         fun actualizarEmpleadoChat(idEmpleadoChat: Int, nuevoIdEmpleado: Int, nuevoIdChat: Int): Boolean {
+            if (idEmpleadoChat <= 0 || nuevoIdEmpleado <= 0 || nuevoIdChat <= 0) {
+                println("Datos ingresados no válidos.")
+                return false
+            }
+
             return transaction {
                 val empleadoChat = EmpleadoChat.findById(idEmpleadoChat)
 

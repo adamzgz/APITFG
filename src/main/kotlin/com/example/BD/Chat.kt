@@ -23,6 +23,12 @@ class Chat(id: EntityID<Int>) : IntEntity(id) {
         )
 
         fun crearChat(idPedido: Int): Chat? {
+            // Validar idPedido
+            if (idPedido <= 0) {
+                println("El ID del pedido no es válido.")
+                return null
+            }
+
             return transaction {
                 val pedido = Pedido.findById(idPedido)
 
@@ -56,6 +62,12 @@ class Chat(id: EntityID<Int>) : IntEntity(id) {
         }
 
         fun actualizarEstadoChat(idChat: Int, nuevoEstado: Chats.Estado): Boolean {
+            // Validar idChat
+            if (idChat <= 0) {
+                println("El ID del chat no es válido.")
+                return false
+            }
+
             return transaction {
                 val chat = Chat.findById(idChat)
 
