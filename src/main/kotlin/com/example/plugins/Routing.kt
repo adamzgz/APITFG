@@ -18,12 +18,6 @@ import org.jetbrains.exposed.sql.transactions.transaction
 import org.mindrot.jbcrypt.BCrypt
 import java.util.*
 
-@Serializable
-data class Post(
-    val email: String,
-    val contraseña: String
-)
-
 fun Application.configureRouting() {
     install(ContentNegotiation) {
         json()
@@ -551,7 +545,7 @@ fun Application.configureRouting() {
                 route("/productos") {
                     post {
                         val idUsuario = obtenerIdUsuarioDesdeToken(call)
-                        if (Usuario.esAdministrador(idUsuario)) {
+                        if (Usuario.esAdministrador(idUsuario!!)) {
                             val productoDto = call.receive<Producto.Companion.ProductoDto>()
                             val success = Producto.crearProducto(
                                 productoDto.nombre,
@@ -573,7 +567,7 @@ fun Application.configureRouting() {
 
                     delete("/{id}") {
                         val idUsuario = obtenerIdUsuarioDesdeToken(call)
-                        if (Usuario.esAdministrador(idUsuario)) {
+                        if (Usuario.esAdministrador(idUsuario!!)) {
                             val id = call.parameters["id"]?.toIntOrNull()
                             val success = id?.let { Producto.borrarProducto(it) }
                             if (success == true) {
@@ -617,11 +611,11 @@ fun Application.configureRouting() {
                         call.respond(productos)
                     }
                 }
-                route("/valoraciones") {
+                route ("/valoraciones") {
                     post {
+                        val valoracionDto = call.receive<Valoracion.Companion.ValoracionDto>()
                         val idUsuario = obtenerIdUsuarioDesdeToken(call)
-                        if (Usuario.esCliente(idUsuario)) {
-                            val valoracionDto = call.receive<Valoracion.Companion.ValoracionDto>()
+                        if (idUsuario != null) {
                             val success = Valoracion.crearValoracion(
                                 valoracionDto.idCliente,
                                 valoracionDto.idProducto,
@@ -639,10 +633,11 @@ fun Application.configureRouting() {
                     }
 
                     delete("/{id}") {
+                        val id = call.parameters["id"]?.toIntOrNull()
                         val idUsuario = obtenerIdUsuarioDesdeToken(call)
-                        if (Usuario.esCliente(idUsuario)) {
-                            val id = call.parameters["id"]?.toIntOrNull()
-                            if (id != null && Valoracion.esPropietario(idUsuario, id)) {
+                        if (id != null && idUsuario != null) {
+                            val valoracion = Valoracion.findById(id)
+                            if (valoracion != null && (idUsuario == valoracion.id_cliente.id_usuario.id.value || Usuario.esAdministrador(idUsuario))) {
                                 val success = Valoracion.borrarValoracion(id)
                                 if (success) {
                                     call.respond(HttpStatusCode.NoContent)
@@ -658,16 +653,13 @@ fun Application.configureRouting() {
                     }
 
                     put("/{id}") {
+                        val valoracionDto = call.receive<Valoracion.Companion.ValoracionDto>()
+                        val id = call.parameters["id"]?.toIntOrNull()
                         val idUsuario = obtenerIdUsuarioDesdeToken(call)
-                        if (Usuario.esCliente(idUsuario)) {
-                            val valoracionDto = call.receive<Valoracion.Companion.ValoracionDto>()
-                            val id = call.parameters["id"]?.toIntOrNull()
-                            if (id != null && Valoracion.esPropietario(idUsuario, id)) {
-                                val success = Valoracion.actualizarValoracion(
-                                    id,
-                                    valoracionDto.puntuacion,
-                                    valoracionDto.comentario
-                                )
+                        if (id != null && idUsuario != null) {
+                            val valoracion = Valoracion.findById(id)
+                            if (valoracion != null && (idUsuario == valoracion.id_cliente.id_usuario.id.value || Usuario.esAdministrador(idUsuario))) {
+                                val success = Valoracion.actualizarValoracion(id, valoracionDto.puntuacion, valoracionDto.comentario)
                                 if (success) {
                                     call.respond(HttpStatusCode.OK)
                                 } else {
@@ -695,49 +687,45 @@ fun Application.configureRouting() {
                         }
                     }
                 }
-
                 route("/usuarios") {
                     post("/crear") {
+                        val usuarioDto = call.receive<Usuario.Companion.UsuarioDto>()
+                        val resultado = Usuario.crearUsuario(usuarioDto)
+                        if (resultado) {
+                            call.respond(HttpStatusCode.Created, "Usuario creado correctamente")
+                        } else {
+                            call.respond(HttpStatusCode.BadRequest, "No se pudo crear el usuario")
+                        }
+                    }
+
+                    delete("/eliminar/{id}") {
                         val idUsuario = obtenerIdUsuarioDesdeToken(call)
-                        if (Usuario.esAdministrador(idUsuario)) {
-                            val usuarioDto = call.receive<Usuario.Companion.UsuarioDto>()
-                            val resultado = Usuario.crearUsuario(usuarioDto)
+                        val id = call.parameters["id"]?.toIntOrNull()
+                        if (id != null && idUsuario != null && (idUsuario == id || Usuario.esAdministrador(idUsuario))) {
+                            val resultado = Usuario.eliminarUsuario(id)
                             if (resultado) {
-                                call.respond(HttpStatusCode.Created, "Usuario creado correctamente")
+                                call.respond(HttpStatusCode.OK, "Usuario eliminado correctamente")
                             } else {
-                                call.respond(HttpStatusCode.BadRequest, "No se pudo crear el usuario")
+                                call.respond(HttpStatusCode.NotFound, "No se encontró el usuario con ID: $id")
                             }
                         } else {
                             call.respond(HttpStatusCode.Forbidden)
                         }
                     }
 
-                    delete("/eliminar") {
+                    put("/actualizar/{id}") {
                         val idUsuario = obtenerIdUsuarioDesdeToken(call)
-                        if (idUsuario != null) {
-                            val resultado = Usuario.eliminarUsuario(idUsuario)
-                            if (resultado) {
-                                call.respond(HttpStatusCode.OK, "Usuario eliminado correctamente")
-                            } else {
-                                call.respond(HttpStatusCode.NotFound, "No se encontró el usuario con ID: $idUsuario")
-                            }
-                        } else {
-                            call.respond(HttpStatusCode.BadRequest, "ID de usuario no válido")
-                        }
-                    }
-
-                    put("/actualizar") {
-                        val idUsuario = obtenerIdUsuarioDesdeToken(call)
-                        if (idUsuario != null) {
+                        val id = call.parameters["id"]?.toIntOrNull()
+                        if (id != null && idUsuario != null && (idUsuario == id || Usuario.esAdministrador(idUsuario))) {
                             val usuarioDto = call.receive<Usuario.Companion.UsuarioDto>()
-                            val resultado = Usuario.actualizarUsuario(idUsuario, usuarioDto)
+                            val resultado = Usuario.actualizarUsuario(id, usuarioDto)
                             if (resultado) {
                                 call.respond(HttpStatusCode.OK, "Usuario actualizado correctamente")
                             } else {
-                                call.respond(HttpStatusCode.NotFound, "No se encontró el usuario con ID: $idUsuario")
+                                call.respond(HttpStatusCode.NotFound, "No se encontró el usuario con ID: $id")
                             }
                         } else {
-                            call.respond(HttpStatusCode.BadRequest, "ID de usuario no válido")
+                            call.respond(HttpStatusCode.Forbidden)
                         }
                     }
                 }
