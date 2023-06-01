@@ -107,6 +107,7 @@ class Usuario(id: EntityID<Int>) : IntEntity(id) {
             }
 
             return transaction {
+                Conexion.conectar()
                 val usuario = Usuario.findById(id)
                 val empleado = Empleado.find { Empleados.id_usuario eq id }
                 empleado.any { it.rol == Empleados.RolEmpleado.ADMINISTRADOR }

@@ -44,7 +44,8 @@ fun Application.configureRouting() {
     }
     fun obtenerIdUsuarioDesdeToken(call: ApplicationCall): Int? {
         val principal = call.authentication.principal<JWTPrincipal>()
-        return principal?.payload?.getClaim("id")?.asInt()
+        println(principal?.payload?.getClaim("userId")?.asInt())
+        return principal?.payload?.getClaim("userId")?.asInt()
     }
 
     routing {
@@ -52,7 +53,6 @@ fun Application.configureRouting() {
             post("/register") {
                 val usuarioDto = call.receive<Usuario.Companion.UsuarioDto>()
                 Conexion.conectar()
-
                 val registrado = Usuario.registrar(usuarioDto)
                 if (registrado) {
                     call.respond(HttpStatusCode.Created)
@@ -544,7 +544,9 @@ fun Application.configureRouting() {
                 }
                 route("/productos") {
                     post {
+                        Conexion.conectar()
                         val idUsuario = obtenerIdUsuarioDesdeToken(call)
+                        println("prueba2" + idUsuario)
                         if (Usuario.esAdministrador(idUsuario!!)) {
                             val productoDto = call.receive<Producto.Companion.ProductoDto>()
                             val success = Producto.crearProducto(

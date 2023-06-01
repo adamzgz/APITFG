@@ -1,12 +1,9 @@
-import kotlinx.serialization.Contextual
 import kotlinx.serialization.Serializable
 import org.jetbrains.exposed.dao.IntEntity
 import org.jetbrains.exposed.dao.IntEntityClass
 import org.jetbrains.exposed.dao.id.EntityID
 import org.jetbrains.exposed.dao.id.IntIdTable
 import org.jetbrains.exposed.sql.transactions.transaction
-import java.math.BigDecimal
-
 class Producto(id: EntityID<Int>) : IntEntity(id) {
     companion object : IntEntityClass<Producto>(Productos) {
 
@@ -14,8 +11,7 @@ class Producto(id: EntityID<Int>) : IntEntity(id) {
         data class ProductoDto(
             val nombre: String,
             val descripcion: String,
-            @Contextual
-            val precio: BigDecimal,
+            val precio: Double,
             val stock: Int,
             val idCategoria: Int,
             val imagen: String
@@ -24,12 +20,12 @@ class Producto(id: EntityID<Int>) : IntEntity(id) {
         fun crearProducto(
             nombre: String,
             descripcion: String,
-            precio: BigDecimal,
+            precio: Double,
             stock: Int,
             idCategoria: Int,
             imagen: String
         ): Boolean {
-            if (nombre.isBlank() || descripcion.isBlank() || precio <= BigDecimal.ZERO || stock <= 0 || idCategoria <= 0 || imagen.isBlank()) {
+            if (nombre.isBlank() || descripcion.isBlank() || precio <= 0 || stock <= 0 || idCategoria <= 0 || imagen.isBlank()) {
                 println("Datos ingresados no válidos.")
                 return false
             }
@@ -47,7 +43,7 @@ class Producto(id: EntityID<Int>) : IntEntity(id) {
                     Producto.new {
                         this.nombre = nombre
                         this.descripcion = descripcion
-                        this.precio = precio
+                        this.precio = precio.toBigDecimal()
                         this.stock = stock
                         this.categoria = categoria
                         this.imagen = imagen
@@ -91,12 +87,12 @@ class Producto(id: EntityID<Int>) : IntEntity(id) {
             idProducto: Int,
             nuevoNombre: String? = null,
             nuevaDescripcion: String? = null,
-            nuevoPrecio: BigDecimal? = null,
+            nuevoPrecio: Double? = null,
             nuevoStock: Int? = null,
             nuevoIdCategoria: Int? = null,
             nuevaImagen: String? = null
         ): Boolean {
-            if (idProducto <= 0 || (nuevoPrecio != null && nuevoPrecio <= BigDecimal.ZERO) || (nuevoStock != null && nuevoStock <= 0) || (nuevoIdCategoria != null && nuevoIdCategoria <= 0)) {
+            if (idProducto <= 0 || (nuevoPrecio != null && nuevoPrecio <= 0) || (nuevoStock != null && nuevoStock <= 0) || (nuevoIdCategoria != null && nuevoIdCategoria <= 0)) {
                 println("Datos ingresados no válidos.")
                 return false
             }
@@ -118,7 +114,7 @@ class Producto(id: EntityID<Int>) : IntEntity(id) {
                         producto.descripcion = nuevaDescripcion
                     }
                     if (nuevoPrecio != null) {
-                        producto.precio = nuevoPrecio
+                        producto.precio = nuevoPrecio.toBigDecimal()
                     }
                     if (nuevoStock != null) {
                         producto.stock = nuevoStock
@@ -149,7 +145,7 @@ class Producto(id: EntityID<Int>) : IntEntity(id) {
                     ProductoDto(
                         producto.nombre,
                         producto.descripcion,
-                        producto.precio,
+                        producto.precio.toDouble(),
                         producto.stock,
                         producto.categoria.id.value,
                         producto.imagen
