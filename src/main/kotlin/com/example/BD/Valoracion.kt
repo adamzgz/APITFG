@@ -3,7 +3,8 @@ import org.jetbrains.exposed.dao.IntEntity
 import org.jetbrains.exposed.dao.IntEntityClass
 import org.jetbrains.exposed.dao.id.EntityID
 import org.jetbrains.exposed.dao.id.IntIdTable
-import org.jetbrains.exposed.sql.`java-time`.datetime
+import org.jetbrains.exposed.sql.*
+import org.jetbrains.exposed.sql.javatime.datetime
 import org.jetbrains.exposed.sql.transactions.transaction
 import java.math.BigDecimal
 import java.time.LocalDateTime
@@ -152,6 +153,31 @@ class Valoracion(id: EntityID<Int>) : IntEntity(id) {
                 return@transaction null
             }
         }
+        fun obtenerValoracionesPorProducto(idProducto: Int): List<ValoracionDto> {
+            if (idProducto <= 0) {
+                println("ID de producto no válido.")
+                return emptyList()
+            }
+
+            return transaction {
+                try {
+                    // Buscar valoraciones por id_producto
+                    val valoraciones = Valoracion.find { Valoraciones.id_producto eq idProducto }
+                    valoraciones.map {
+                        ValoracionDto(
+                            idCliente = it.id_cliente.id.value,
+                            idProducto = it.id_producto.id.value,
+                            puntuacion = it.puntuacion,
+                            comentario = it.comentario
+                        )
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    emptyList<ValoracionDto>()
+                }
+            }
+        }
+
     }
 
     var id_cliente by Cliente referencedOn Valoraciones.id_cliente

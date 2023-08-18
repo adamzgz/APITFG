@@ -688,6 +688,20 @@ fun Application.configureRouting() {
                             call.respond(HttpStatusCode.BadRequest, "ID de producto inválido")
                         }
                     }
+
+                    get("/valoracionesProducto/{idProducto}") {
+                        val idProducto = call.parameters["idProducto"]?.toIntOrNull()
+                        if (idProducto != null) {
+                            val valoraciones = Valoracion.obtenerValoracionesPorProducto(idProducto)
+                            if (valoraciones.isNotEmpty()) {
+                                call.respond(HttpStatusCode.OK, valoraciones)
+                            } else {
+                                call.respond(HttpStatusCode.NotFound, "No se encontraron valoraciones para el producto especificado")
+                            }
+                        } else {
+                            call.respond(HttpStatusCode.BadRequest, "ID de producto inválido")
+                        }
+                    }
                 }
                 route("/usuarios") {
                     post("/crear") {
