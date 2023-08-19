@@ -11,11 +11,16 @@ import io.ktor.server.request.*
 import io.ktor.server.response.*
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
+import io.ktor.http.content.*
 import io.ktor.serialization.kotlinx.json.*
+import io.ktor.server.http.content.*
 import io.ktor.server.plugins.contentnegotiation.*
 import kotlinx.serialization.Serializable
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.mindrot.jbcrypt.BCrypt
+import java.io.File
+import java.io.InputStream
+import java.io.OutputStream
 import java.util.*
 
 fun Application.configureRouting() {
@@ -49,7 +54,39 @@ fun Application.configureRouting() {
     }
 
     routing {
+        // Servir imágenes desde la carpeta resources/img_productos/
+        static("/img_productos") {
+            resources("img_productos/")
+        }
+        // Servir imágenes desde la carpeta resources/img_usuarios/
+        static("/img_usuarios") {
+            resources("img_usuarios/")
+        }
         route("/auth") {
+
+                route("/img_productos") {
+                    post {
+                        val multipart = call.receiveMultipart()
+                        multipart.forEachPart { part ->
+                            when(part) {
+                                is PartData.FileItem -> {
+                                    val ext = File(part.originalFileName!!).extension
+                                    val file = File("img_productos/${System.currentTimeMillis()}.$ext")
+                                    part.streamProvider().use { its -> file.outputStream().buffered().use { its.copyToSuspend(it) } }
+                                }
+
+                                else -> {
+
+                                }
+                            }
+                            part.dispose()
+                        }
+                        call.respond(HttpStatusCode.OK)
+                    }
+                }
+
+
+
             post("/register") {
                 val usuarioDto = call.receive<Usuario.Companion.UsuarioDto>()
                 Conexion.conectar()
@@ -150,7 +187,7 @@ fun Application.configureRouting() {
                     }
                 }
 
-                route("/chats") {
+                /*route("/chats") {
                     post {
                         val chatDto = call.receive<Chat.Companion.ChatDto>()
                         val chat = Chat.crearChat(chatDto.idPedido)
@@ -196,7 +233,7 @@ fun Application.configureRouting() {
                             call.respond(HttpStatusCode.NotFound)
                         }
                     }
-                }
+                }*/
                 route("/clientes") {
                     post {
                         val idUsuario = obtenerIdUsuarioDesdeToken(call)
@@ -385,7 +422,7 @@ fun Application.configureRouting() {
                         }
                     }
                 }
-                route("/empleados-chats") {
+                /*route("/empleados-chats") {
                     post {
                         val empleadoChatDto = call.receive<EmpleadoChat.Companion.EmpleadoChatDto>()
                         EmpleadoChat.insertEmpleadoChat(empleadoChatDto.idEmpleado, empleadoChatDto.idChat)
@@ -420,8 +457,8 @@ fun Application.configureRouting() {
                     }
 
 
-                }
-                route("/mensajes") {
+                }*/
+               /* route("/mensajes") {
                     post {
                         val mensajeDto = call.receive<Mensaje.Companion.MensajeDto>()
                         val success = Mensaje.crearMensaje(
@@ -471,7 +508,7 @@ fun Application.configureRouting() {
                             call.respond(HttpStatusCode.BadRequest, "ID de chat inválido")
                         }
                     }
-                }
+                }*/
                 route("/pedidos") {
                     post {
                         val idUsuario = obtenerIdUsuarioDesdeToken(call)
@@ -553,7 +590,6 @@ fun Application.configureRouting() {
                                 productoDto.nombre,
                                 productoDto.descripcion,
                                 productoDto.precio,
-                                productoDto.stock,
                                 productoDto.idCategoria,
                                 productoDto.imagen
                             )
@@ -593,7 +629,6 @@ fun Application.configureRouting() {
                                     productoDto.nombre,
                                     productoDto.descripcion,
                                     productoDto.precio,
-                                    productoDto.stock,
                                     productoDto.idCategoria,
                                     productoDto.imagen
                                 )
@@ -612,6 +647,21 @@ fun Application.configureRouting() {
                         val productos = Producto.obtenerProductos()
                         call.respond(productos)
                     }
+                    get("/{id}") {
+                        val idUsuario = obtenerIdUsuarioDesdeToken(call)
+                        if (Usuario.esAdministrador(idUsuario!!)) {
+                            val id = call.parameters["id"]?.toIntOrNull()
+                            val productoDto = id?.let { Producto.obtenerProductoPorId(it) }
+                            if (productoDto != null) {
+                                call.respond(HttpStatusCode.OK, productoDto)
+                            } else {
+                                call.respond(HttpStatusCode.NotFound, "Producto no encontrado")
+                            }
+                        } else {
+                            call.respond(HttpStatusCode.Forbidden)
+                        }
+                    }
+
                 }
                 route ("/valoraciones") {
                     post {
@@ -746,10 +796,22 @@ fun Application.configureRouting() {
                     }
                 }
 
+
             }
         }
 
     }
+}
+suspend fun InputStream.copyToSuspend(out: OutputStream, bufferSize: Int = DEFAULT_BUFFER_SIZE): Long {
+    var bytesCopied: Long = 0
+    val buffer = ByteArray(bufferSize)
+    var bytes = read(buffer)
+    while (bytes >= 0) {
+        out.write(buffer, 0, bytes)
+        bytesCopied += bytes
+        bytes = read(buffer)
+    }
+    return bytesCopied
 }
 
 

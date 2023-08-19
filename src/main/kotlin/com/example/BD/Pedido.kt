@@ -16,10 +16,10 @@ object Pedidos : IntIdTable() {
 
     enum class EstadoPedido {
 
-        PENDIENTE,
-        ENVIADO,
-        ENTREGADO,
-        EN_PROCESO
+        PENDIENTE, // pedido realizado por el cliente
+        ENVIADO, //pedido enviado
+        ENTREGADO, //pedido entregado
+        EN_PROCESO // en el carrito
     }
 }
 

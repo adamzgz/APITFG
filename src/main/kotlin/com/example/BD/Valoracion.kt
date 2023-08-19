@@ -14,7 +14,7 @@ object Valoraciones : IntIdTable() {
     val id_producto = reference("id_producto", Productos)
     val puntuacion = integer("puntuacion")
     val comentario = text("comentario").nullable()
-    val fecha_valoracion = datetime("fecha_valoracion")
+    val fecha = datetime("fecha")
 }
 
 class Valoracion(id: EntityID<Int>) : IntEntity(id) {
@@ -60,7 +60,7 @@ class Valoracion(id: EntityID<Int>) : IntEntity(id) {
                         this.id_producto = producto
                         this.puntuacion = puntuacion
                         this.comentario = comentario
-                        this.fecha_valoracion = LocalDateTime.now()
+                        this.fecha = LocalDateTime.now()
                     }
 
                     return@transaction true
@@ -184,5 +184,5 @@ class Valoracion(id: EntityID<Int>) : IntEntity(id) {
     var id_producto by Producto referencedOn Valoraciones.id_producto
     var puntuacion by Valoraciones.puntuacion
     var comentario by Valoraciones.comentario
-    var fecha_valoracion by Valoraciones.fecha_valoracion
+    var fecha by Valoraciones.fecha
 }

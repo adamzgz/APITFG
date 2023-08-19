@@ -12,6 +12,7 @@ object Usuarios : IntIdTable() {
     val telefono = varchar("telefono", 20)
     val email = varchar("email", 100)
     val contraseña = varchar("contraseña", 255)
+    val imagen = varchar("imagen", 255).nullable()  // Añadido
 }
 
 class Usuario(id: EntityID<Int>) : IntEntity(id) {
@@ -22,7 +23,8 @@ class Usuario(id: EntityID<Int>) : IntEntity(id) {
             val direccion: String,
             val telefono: String,
             val email: String,
-            val contraseña: String
+            val contraseña: String,
+            val imagen: String? = null  // Añadido
         )
 
         @Serializable
@@ -32,7 +34,8 @@ class Usuario(id: EntityID<Int>) : IntEntity(id) {
             val telefono: String,
             val email: String,
             val contraseña: String,
-            val rol: String
+            val rol: String,
+            val imagen: String? = null  // Añadido
         )
 
         fun crearUsuario(usuarioDto: UsuarioDto): Boolean {
@@ -88,6 +91,7 @@ class Usuario(id: EntityID<Int>) : IntEntity(id) {
                         usuario.telefono = usuarioDto.telefono
                         usuario.email = usuarioDto.email
                         usuario.contraseña = cifrarContraseña(usuarioDto.contraseña)
+                        usuario.imagen = usuarioDto.imagen  // Añadido
                         return@transaction true
                     } else {
                         println("No se pudo encontrar el usuario con ID: $id")
@@ -133,6 +137,7 @@ class Usuario(id: EntityID<Int>) : IntEntity(id) {
                         telefono = usuarioDto.telefono
                         email = usuarioDto.email
                         contraseña = contraseñaCifrada
+                        imagen = usuarioDto.imagen  // Añadido
                     }
 
                     Cliente.new {
@@ -173,4 +178,5 @@ class Usuario(id: EntityID<Int>) : IntEntity(id) {
     var telefono by Usuarios.telefono
     var email by Usuarios.email
     var contraseña by Usuarios.contraseña
+    var imagen by Usuarios.imagen  // Añadido
 }
