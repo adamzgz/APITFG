@@ -11,13 +11,14 @@ object Categorias : IntIdTable() {
 
 class Categoria(id: EntityID<Int>) : IntEntity(id) {
     companion object : IntEntityClass<Categoria>(Categorias) {
+
         @Serializable
         data class CategoriaDto(
+            val id: Int,
             val nombre: String
         )
 
         fun crearCategoria(nombre: String): Boolean {
-            // Verificar si el nombre está vacío o si es demasiado largo
             if (nombre.isEmpty() || nombre.length > 50) {
                 println("El nombre de la categoría no puede estar vacío y debe tener 50 caracteres o menos.")
                 return false
@@ -25,14 +26,12 @@ class Categoria(id: EntityID<Int>) : IntEntity(id) {
 
             return transaction {
                 try {
-                    // Verificar si la categoría ya existe
                     val categoriaExistente = Categoria.find { Categorias.nombre eq nombre }.firstOrNull()
                     if (categoriaExistente != null) {
                         println("La categoría '$nombre' ya existe.")
                         return@transaction false
                     }
 
-                    // Crear la nueva categoría
                     Categoria.new {
                         this.nombre = nombre
                     }
@@ -48,7 +47,7 @@ class Categoria(id: EntityID<Int>) : IntEntity(id) {
         fun obtenerCategorias(): List<CategoriaDto> {
             return transaction {
                 return@transaction Categoria.all().map { categoria ->
-                    CategoriaDto(categoria.nombre)
+                    CategoriaDto(categoria.id.value, categoria.nombre)
                 }
             }
         }
@@ -57,7 +56,7 @@ class Categoria(id: EntityID<Int>) : IntEntity(id) {
             return transaction {
                 val categoria = Categoria.findById(id)
                 if (categoria != null) {
-                    return@transaction CategoriaDto(categoria.nombre)
+                    return@transaction CategoriaDto(categoria.id.value, categoria.nombre)
                 } else {
                     return@transaction null
                 }
@@ -65,7 +64,6 @@ class Categoria(id: EntityID<Int>) : IntEntity(id) {
         }
 
         fun actualizarCategoria(id: Int, nuevoNombre: String): Boolean {
-            // Verificar si el nombre está vacío o si es demasiado largo
             if (nuevoNombre.isEmpty() || nuevoNombre.length > 50) {
                 println("El nombre de la categoría no puede estar vacío y debe tener 50 caracteres o menos.")
                 return false
@@ -73,21 +71,18 @@ class Categoria(id: EntityID<Int>) : IntEntity(id) {
 
             return transaction {
                 try {
-                    // Buscar la categoría por su ID
                     val categoria = Categoria.findById(id)
                     if (categoria == null) {
                         println("La categoría con ID $id no existe.")
                         return@transaction false
                     }
 
-                    // Verificar si la nueva categoría ya existe
                     val categoriaExistente = Categoria.find { Categorias.nombre eq nuevoNombre }.firstOrNull()
                     if (categoriaExistente != null && categoriaExistente != categoria) {
                         println("La categoría '$nuevoNombre' ya existe.")
                         return@transaction false
                     }
 
-                    // Actualizar el nombre de la categoría
                     categoria.nombre = nuevoNombre
 
                     return@transaction true
@@ -101,14 +96,12 @@ class Categoria(id: EntityID<Int>) : IntEntity(id) {
         fun eliminarCategoria(id: Int): Boolean {
             return transaction {
                 try {
-                    // Buscar la categoría por su ID
                     val categoria = Categoria.findById(id)
                     if (categoria == null) {
                         println("La categoría con ID $id no existe.")
                         return@transaction false
                     }
 
-                    // Eliminar la categoría
                     categoria.delete()
 
                     return@transaction true

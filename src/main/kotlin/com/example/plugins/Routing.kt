@@ -64,7 +64,7 @@ fun Application.configureRouting() {
         }
         route("/auth") {
 
-                route("/img_productos") {
+                route("/add_img_productos") {
                     post {
                         val multipart = call.receiveMultipart()
                         multipart.forEachPart { part ->
