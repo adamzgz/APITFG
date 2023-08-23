@@ -3,6 +3,7 @@ import org.jetbrains.exposed.dao.IntEntity
 import org.jetbrains.exposed.dao.IntEntityClass
 import org.jetbrains.exposed.dao.id.EntityID
 import org.jetbrains.exposed.dao.id.IntIdTable
+import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.transactions.transaction
 
 object DetallesPedidos : IntIdTable() {
@@ -16,6 +17,7 @@ class DetallePedido(id: EntityID<Int>) : IntEntity(id) {
 
         @Serializable
         data class DetallePedidoDto(
+            val id: Int?,
             val idPedido: Int,
             val idProducto: Int,
             val cantidad: Int
@@ -41,12 +43,31 @@ class DetallePedido(id: EntityID<Int>) : IntEntity(id) {
                     return@transaction false
                 }
 
-                DetallePedido.new {
-                    this.id_pedido = pedido
-                    this.id_producto = producto
-                    this.cantidad = cantidad
+                // Comprobar que el estado del pedido está EN_PROCESO antes de agregar el detalle
+                if (pedido.estado != Pedidos.EstadoPedido.EN_PROCESO) {
+                    println("El pedido con ID $idPedido no está en proceso, por lo que no se pueden agregar más detalles.")
+                    return@transaction false
                 }
-                println("Registro DetallePedido insertado con éxito")
+
+                // Comprobar si ya existe un DetallePedido con ese idPedido y idProducto
+                val detalleExistente = DetallePedido.find {
+                    DetallesPedidos.id_pedido eq idPedido and (DetallesPedidos.id_producto eq idProducto)
+                }.singleOrNull()
+
+                if (detalleExistente != null) {
+                    // Si ya existe, actualizamos la cantidad
+                    detalleExistente.cantidad += cantidad
+                    println("Cantidad actualizada en el DetallePedido existente")
+                } else {
+                    // Si no existe, creamos un nuevo detalle
+                    DetallePedido.new {
+                        this.id_pedido = pedido
+                        this.id_producto = producto
+                        this.cantidad = cantidad
+                    }
+                    println("Registro DetallePedido insertado con éxito")
+                }
+
                 return@transaction true
             }
         }

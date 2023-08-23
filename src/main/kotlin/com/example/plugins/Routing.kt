@@ -544,12 +544,11 @@ fun Application.configureRouting() {
                     post {
                         val idUsuario = obtenerIdUsuarioDesdeToken(call)
                         val cliente = Cliente.obtenerClientePorUsuario(idUsuario!!)
-                        val pedidoDto = call.receive<Pedido.Companion.PedidoDto>()
-                        if (cliente != null && (Usuario.esAdministrador(idUsuario) || cliente.id.value == pedidoDto.idCliente)) {
-                            val estadoPedido = Pedidos.EstadoPedido.valueOf(pedidoDto.estado)
-                            val success = Pedido.crearPedido(cliente.id.value, estadoPedido)
-                            if (success) {
-                                call.respond(HttpStatusCode.Created)
+                        if (cliente != null) {
+                            val estadoPedido = Pedidos.EstadoPedido.EN_PROCESO
+                            val pedidoCreado = Pedido.crearPedido(cliente.id.value, estadoPedido)
+                            if (pedidoCreado != null) {
+                                call.respond(HttpStatusCode.Created, pedidoCreado)
                             } else {
                                 call.respond(HttpStatusCode.BadRequest, "No se pudo crear el pedido")
                             }
@@ -557,6 +556,7 @@ fun Application.configureRouting() {
                             call.respond(HttpStatusCode.Forbidden)
                         }
                     }
+
 
                     get {
                         val idUsuario = obtenerIdUsuarioDesdeToken(call)
@@ -571,6 +571,20 @@ fun Application.configureRouting() {
                             } else {
                                 call.respond(HttpStatusCode.Forbidden)
                             }
+                        }
+                    }
+                    get("/enProceso") {
+                        val idUsuario = obtenerIdUsuarioDesdeToken(call)
+                        val cliente = Cliente.obtenerClientePorUsuario(idUsuario!!)
+                        if (cliente != null) {
+                            val pedidoDto = Pedido.pedidoEnProceso(cliente.id.value)
+                            if (pedidoDto != null) {
+                                call.respond(pedidoDto)
+                            } else {
+                                call.respond(HttpStatusCode.NotFound, "No hay pedidos en proceso para el cliente.")
+                            }
+                        } else {
+                            call.respond(HttpStatusCode.Forbidden, "Acceso denegado.")
                         }
                     }
 
@@ -596,10 +610,17 @@ fun Application.configureRouting() {
 
                     delete("/{id}") {
                         val idUsuario = obtenerIdUsuarioDesdeToken(call)
-                        val id = call.parameters["id"]?.toIntOrNull()
+                        val idPedido = call.parameters["id"]?.toIntOrNull()
+                        if (idPedido == null) {
+                            call.respond(HttpStatusCode.BadRequest, "ID de pedido inválido")
+                            return@delete
+                        }
+
                         val cliente = Cliente.obtenerClientePorUsuario(idUsuario!!)
-                        if (cliente != null && (Usuario.esAdministrador(idUsuario) || cliente.id.value == id)) {
-                            val success = Pedido.borrarPedido(id!!)
+                        val pedido = Pedido.findById(idPedido)  // Suponiendo que findById es una función válida.
+
+                        if (cliente != null && (Usuario.esAdministrador(idUsuario) || cliente.id.value == pedido?.id_cliente?.value)) {
+                            val success = Pedido.borrarPedido(idPedido)
                             if (success) {
                                 call.respond(HttpStatusCode.NoContent)
                             } else {
