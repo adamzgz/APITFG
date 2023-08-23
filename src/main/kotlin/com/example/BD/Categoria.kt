@@ -14,7 +14,7 @@ class Categoria(id: EntityID<Int>) : IntEntity(id) {
 
         @Serializable
         data class CategoriaDto(
-            val id: Int,
+            val id: Int? = null,
             val nombre: String
         )
 

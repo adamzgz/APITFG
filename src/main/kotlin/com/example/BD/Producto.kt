@@ -3,6 +3,7 @@ import org.jetbrains.exposed.dao.IntEntity
 import org.jetbrains.exposed.dao.IntEntityClass
 import org.jetbrains.exposed.dao.id.EntityID
 import org.jetbrains.exposed.dao.id.IntIdTable
+import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.transactions.transaction
 
 class Producto(id: EntityID<Int>) : IntEntity(id) {
@@ -10,6 +11,7 @@ class Producto(id: EntityID<Int>) : IntEntity(id) {
 
         @Serializable
         data class ProductoDto(
+            val id: Int,
             val nombre: String,
             val descripcion: String,
             val precio: Double,
@@ -135,8 +137,9 @@ class Producto(id: EntityID<Int>) : IntEntity(id) {
 
         fun obtenerProductos(): List<ProductoDto> {
             return transaction {
-                return@transaction Producto.all().map { producto ->
+                Producto.all().map { producto ->
                     ProductoDto(
+                        producto.id.value,  // Añade el id del producto aquí
                         producto.nombre,
                         producto.descripcion,
                         producto.precio.toDouble(),
@@ -151,6 +154,7 @@ class Producto(id: EntityID<Int>) : IntEntity(id) {
                 val producto = Producto.findById(idProducto)
                 if (producto != null) {
                     ProductoDto(
+                        producto.id.value,
                         producto.nombre,
                         producto.descripcion,
                         producto.precio.toDouble(),

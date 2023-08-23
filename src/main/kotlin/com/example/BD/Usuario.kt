@@ -12,7 +12,7 @@ object Usuarios : IntIdTable() {
     val telefono = varchar("telefono", 20)
     val email = varchar("email", 100)
     val contraseña = varchar("contraseña", 255)
-    val imagen = varchar("imagen", 255).nullable()  // Añadido
+
 }
 
 class Usuario(id: EntityID<Int>) : IntEntity(id) {
@@ -24,7 +24,7 @@ class Usuario(id: EntityID<Int>) : IntEntity(id) {
             val telefono: String,
             val email: String,
             val contraseña: String,
-            val imagen: String? = null  // Añadido
+
         )
 
         @Serializable
@@ -35,7 +35,7 @@ class Usuario(id: EntityID<Int>) : IntEntity(id) {
             val email: String,
             val contraseña: String,
             val rol: String,
-            val imagen: String? = null  // Añadido
+
         )
 
         fun crearUsuario(usuarioDto: UsuarioDto): Boolean {
@@ -47,34 +47,52 @@ class Usuario(id: EntityID<Int>) : IntEntity(id) {
             return registrar(usuarioDto)
         }
 
-        fun eliminarUsuario(id: Int): Boolean {
+        fun borrarUsuario(id: Int): Boolean {
+            // Validar id
             if (id <= 0) {
-                println("ID de usuario no válido.")
+                println("El ID del usuario no es válido.")
                 return false
             }
 
             return transaction {
                 try {
+                    // Buscar el usuario por su ID
                     val usuario = Usuario.findById(id)
-                    if (usuario != null) {
-                        val cliente = Cliente.find { Clientes.id_usuario eq usuario.id }.singleOrNull()
-                        val empleado = Empleado.find { Empleados.id_usuario eq usuario.id }.singleOrNull()
-
-                        cliente?.delete()
-                        empleado?.delete()
-
-                        usuario.delete()
-                        return@transaction true
-                    } else {
-                        println("No se pudo encontrar el usuario con ID: $id")
+                    if (usuario == null) {
+                        println("El usuario con ID $id no existe.")
                         return@transaction false
                     }
+
+                    // Comprobar si es un cliente y, si es así, eliminarlo
+                    val cliente = Cliente.obtenerClientePorUsuario(id)
+                    cliente?.delete()
+
+                    // Comprobar si es un empleado y, si es así, eliminarlo
+                    val empleado = Empleado.find { Empleados.id_usuario eq id }.singleOrNull()
+                    empleado?.delete()
+
+                    // Finalmente, eliminar el usuario
+                    usuario.delete()
+
+                    println("Usuario borrado con éxito.")
+                    return@transaction true
                 } catch (e: Exception) {
                     e.printStackTrace()
                     return@transaction false
                 }
             }
         }
+        fun tipoDeUsuario(id: Int): String {
+            return transaction {
+                when {
+                    Cliente.obtenerClientePorUsuario(id) != null -> "Cliente"
+                    Empleado.find { Empleados.id_usuario eq id }.singleOrNull() != null -> "Empleado"
+                    else -> "Desconocido"
+                }
+            }
+        }
+
+
 
         fun actualizarUsuario(id: Int, usuarioDto: UsuarioDto): Boolean {
             if (id <= 0 || usuarioDto.nombre.isBlank() || usuarioDto.direccion.isBlank() || usuarioDto.telefono.isBlank() || usuarioDto.email.isBlank() || usuarioDto.contraseña.isBlank()) {
@@ -91,7 +109,7 @@ class Usuario(id: EntityID<Int>) : IntEntity(id) {
                         usuario.telefono = usuarioDto.telefono
                         usuario.email = usuarioDto.email
                         usuario.contraseña = cifrarContraseña(usuarioDto.contraseña)
-                        usuario.imagen = usuarioDto.imagen  // Añadido
+
                         return@transaction true
                     } else {
                         println("No se pudo encontrar el usuario con ID: $id")
@@ -111,7 +129,6 @@ class Usuario(id: EntityID<Int>) : IntEntity(id) {
             }
 
             return transaction {
-                Conexion.conectar()
                 val usuario = Usuario.findById(id)
                 val empleado = Empleado.find { Empleados.id_usuario eq id }
                 empleado.any { it.rol == Empleados.RolEmpleado.ADMINISTRADOR }
@@ -137,7 +154,7 @@ class Usuario(id: EntityID<Int>) : IntEntity(id) {
                         telefono = usuarioDto.telefono
                         email = usuarioDto.email
                         contraseña = contraseñaCifrada
-                        imagen = usuarioDto.imagen  // Añadido
+
                     }
 
                     Cliente.new {
@@ -178,5 +195,4 @@ class Usuario(id: EntityID<Int>) : IntEntity(id) {
     var telefono by Usuarios.telefono
     var email by Usuarios.email
     var contraseña by Usuarios.contraseña
-    var imagen by Usuarios.imagen  // Añadido
 }

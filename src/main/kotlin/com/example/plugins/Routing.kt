@@ -62,30 +62,8 @@ fun Application.configureRouting() {
         static("/img_usuarios") {
             resources("img_usuarios/")
         }
+
         route("/auth") {
-
-                route("/add_img_productos") {
-                    post {
-                        val multipart = call.receiveMultipart()
-                        multipart.forEachPart { part ->
-                            when(part) {
-                                is PartData.FileItem -> {
-                                    val ext = File(part.originalFileName!!).extension
-                                    val file = File("img_productos/${System.currentTimeMillis()}.$ext")
-                                    part.streamProvider().use { its -> file.outputStream().buffered().use { its.copyToSuspend(it) } }
-                                }
-
-                                else -> {
-
-                                }
-                            }
-                            part.dispose()
-                        }
-                        call.respond(HttpStatusCode.OK)
-                    }
-                }
-
-
 
             post("/register") {
                 val usuarioDto = call.receive<Usuario.Companion.UsuarioDto>()
@@ -132,6 +110,59 @@ fun Application.configureRouting() {
         }
         authenticate("jwt-auth") {
             route("/secure") {
+                route("/add_img_productos") {
+                    post {
+                        println("Entrando al endpoint /add_img_productos")
+
+                        val multipart = call.receiveMultipart()
+                        var imageSavedPath: String? = null
+
+                        multipart.forEachPart { part ->
+                            when (part) {
+                                is PartData.FileItem -> {
+                                    val originalFileName = part.originalFileName!!
+                                    println("Archivo recibido: $originalFileName")
+
+                                    // Comprobamos si hay un producto con el mismo nombre de imagen
+                                    val existingProductWithImage = transaction {
+                                        Producto.find { Productos.imagen eq originalFileName }.singleOrNull()
+                                    }
+
+                                    if (existingProductWithImage != null) {
+                                        call.respond(HttpStatusCode.Conflict, "Ya hay un producto con una imagen con ese nombre.")
+                                        part.dispose()
+                                        return@forEachPart
+                                    }
+
+                                    val ext = File(originalFileName).extension
+                                    println("Extensión del archivo: $ext")
+
+                                    val file = File("D:\\Descargas\\proyectoTFG\\src\\main\\resources\\img_productos\\${part.originalFileName}")
+                                    println("Ruta donde se guardará la imagen: ${file.absolutePath}")
+                                    imageSavedPath = file.absolutePath
+
+                                    part.streamProvider().use { its ->
+                                        file.outputStream().buffered().use {
+                                            val bytesCopied = its.copyToSuspend(it)
+                                            println("Se copiaron $bytesCopied bytes al archivo.")
+                                        }
+                                    }
+                                }
+                                else -> {
+                                    println("Tipo de parte no reconocido: ${part.name}")
+                                }
+                            }
+                            part.dispose()
+                        }
+
+                        if (imageSavedPath != null) {
+                            call.respond(HttpStatusCode.OK, mapOf("path" to imageSavedPath!!))
+                        } else {
+                            call.respond(HttpStatusCode.BadRequest, "No se proporcionó una imagen válida.")
+                        }
+                    }
+                }
+
                 route("/categorias") {
                     post {
                         val idUsuario = obtenerIdUsuarioDesdeToken(call)
@@ -763,12 +794,24 @@ fun Application.configureRouting() {
                             call.respond(HttpStatusCode.BadRequest, "No se pudo crear el usuario")
                         }
                     }
+                    get("/tipo/{id}") {
+                        val idUsuario = obtenerIdUsuarioDesdeToken(call)
+                        val id = call.parameters["id"]?.toIntOrNull()
+
+                        if (id != null && idUsuario != null && (idUsuario == id || Usuario.esAdministrador(idUsuario))) {
+                            val tipo = Usuario.tipoDeUsuario(id)
+                            call.respond(HttpStatusCode.OK, "El usuario con ID $id es un: $tipo")
+                        } else {
+                            call.respond(HttpStatusCode.Forbidden, "No tienes permiso para acceder a esta información.")
+                        }
+                    }
+
 
                     delete("/eliminar/{id}") {
                         val idUsuario = obtenerIdUsuarioDesdeToken(call)
                         val id = call.parameters["id"]?.toIntOrNull()
                         if (id != null && idUsuario != null && (idUsuario == id || Usuario.esAdministrador(idUsuario))) {
-                            val resultado = Usuario.eliminarUsuario(id)
+                            val resultado = Usuario.borrarUsuario(id)
                             if (resultado) {
                                 call.respond(HttpStatusCode.OK, "Usuario eliminado correctamente")
                             } else {
