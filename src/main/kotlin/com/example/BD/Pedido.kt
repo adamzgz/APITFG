@@ -14,10 +14,7 @@ object Pedidos : IntIdTable() {
     val fecha_pedido: Column<LocalDate> = date("fecha_pedido")
 
     enum class EstadoPedido {
-        PENDIENTE, // pedido realizado por el cliente
-        ENVIADO, //pedido enviado
-        ENTREGADO, //pedido entregado
-        EN_PROCESO // en el carrito
+        PENDIENTE, ENVIADO, ENTREGADO, EN_PROCESO
     }
 }
 
@@ -26,128 +23,68 @@ class Pedido(id: EntityID<Int>) : IntEntity(id) {
 
         @Serializable
         data class PedidoDto(
-            val idPedido: Int,  // Agregando idPedido
-            val idCliente: Int,
-            val estado: String
+            val idPedido: Int? = null,
+            val idCliente: Int? = null,
+            val estado: String,
+            val fechaPedido: String? = null
         )
 
         fun crearPedido(idCliente: Int, estado: Pedidos.EstadoPedido): Pedido? {
-            if (idCliente <= 0) {
-                println("ID de cliente no válido.")
-                return null
-            }
-
             return transaction {
-                try {
-                    val cliente = Cliente.findById(EntityID(idCliente, Clientes))
-                    if (cliente == null) {
-                        println("El cliente con ID $idCliente no existe.")
-                        return@transaction null
-                    }
-
-                    val pedidoCreado = Pedido.new {
-                        this.id_cliente = cliente.id
-                        this.estado = estado
-                        this.fecha_pedido = LocalDate.now()
-                    }
-
-                    return@transaction pedidoCreado  // Devuelve el objeto completo del pedido creado
-
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                    return@transaction null
+                val cliente = Cliente.findById(EntityID(idCliente, Clientes)) ?: return@transaction null
+                val pedidoCreado = Pedido.new {
+                    this.id_cliente = cliente.id
+                    this.estado = estado
+                    this.fecha_pedido = LocalDate.now()
                 }
+                return@transaction pedidoCreado
             }
         }
 
-
         fun borrarPedido(idPedido: Int): Boolean {
-            if (idPedido <= 0) {
-                println("ID de pedido no válido.")
-                return false
-            }
-
             return transaction {
-                try {
-                    val pedido = Pedido.findById(idPedido)
-                    if (pedido == null) {
-                        println("El pedido con ID $idPedido no existe.")
-                        return@transaction false
-                    }
-                    pedido.delete()
-                    return@transaction true
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                    return@transaction false
-                }
+                val pedido = Pedido.findById(idPedido) ?: return@transaction false
+                pedido.delete()
+                return@transaction true
             }
         }
 
         fun obtenerPedidosPorUsuario(idUsuario: Int): List<PedidoDto> {
             return transaction {
-                val cliente = Cliente.findById(idUsuario)
-                if (cliente != null) {
-                    return@transaction Pedido.find { Pedidos.id_cliente eq cliente.id }.map { pedido ->
-                        PedidoDto(
-                            pedido.id.value, // Agregando idPedido
-                            pedido.id_cliente.value,
-                            pedido.estado.name
-                        )
-                    }
-                } else {
-                    return@transaction emptyList()
+                val cliente = Cliente.findById(idUsuario) ?: return@transaction emptyList()
+                return@transaction Pedido.find { Pedidos.id_cliente eq cliente.id }.map { pedido ->
+                    PedidoDto(
+                        pedido.id.value,
+                        pedido.id_cliente.value,
+                        pedido.estado.name,
+                        pedido.fecha_pedido.toString()
+                    )
                 }
             }
         }
+
         fun pedidoEnProceso(idCliente: Int): PedidoDto? {
             return transaction {
-                try {
-                    val cliente = Cliente.findById(idCliente)
-                    if (cliente == null) {
-                        println("El cliente con ID $idCliente no existe.")
-                        return@transaction null
-                    }
-
-                    val pedidoEncontrado = Pedido.find {
-                        Pedidos.id_cliente eq cliente.id and (Pedidos.estado eq Pedidos.EstadoPedido.EN_PROCESO)
-                    }.singleOrNull()
-
-                    return@transaction pedidoEncontrado?.let { pedido ->
-                        PedidoDto(
-                            pedido.id.value,
-                            pedido.id_cliente.value,
-                            pedido.estado.name
-                        )
-                    }
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                    return@transaction null
+                val cliente = Cliente.findById(idCliente) ?: return@transaction null
+                val pedidoEncontrado = Pedido.find {
+                    Pedidos.id_cliente eq cliente.id and (Pedidos.estado eq Pedidos.EstadoPedido.EN_PROCESO)
+                }.singleOrNull()
+                return@transaction pedidoEncontrado?.let { pedido ->
+                    PedidoDto(
+                        pedido.id.value,
+                        pedido.id_cliente.value,
+                        pedido.estado.name,
+                        pedido.fecha_pedido.toString()
+                    )
                 }
             }
         }
 
-        fun actualizarPedido(idPedido: Int, nuevoEstado: Pedidos.EstadoPedido? = null): Boolean {
-            if (idPedido <= 0 || nuevoEstado == null) {
-                println("Datos ingresados no válidos.")
-                return false
-            }
-
+        fun actualizarPedido(idPedido: Int, nuevoEstado: Pedidos.EstadoPedido): Boolean {
             return transaction {
-                try {
-                    val pedido = Pedido.findById(idPedido)
-                    if (pedido == null) {
-                        println("El pedido con ID $idPedido no existe.")
-                        return@transaction false
-                    }
-
-                    if (nuevoEstado != null) {
-                        pedido.estado = nuevoEstado
-                    }
-                    return@transaction true
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                    return@transaction false
-                }
+                val pedido = Pedido.findById(idPedido) ?: return@transaction false
+                pedido.estado = nuevoEstado
+                return@transaction true
             }
         }
 
@@ -155,16 +92,43 @@ class Pedido(id: EntityID<Int>) : IntEntity(id) {
             return transaction {
                 return@transaction Pedido.all().map { pedido ->
                     PedidoDto(
-                        pedido.id.value, // Agregando idPedido
+                        pedido.id.value,
                         pedido.id_cliente.value,
-                        pedido.estado.name
+                        pedido.estado.name,
+                        pedido.fecha_pedido.toString()
+                    )
+                }
+            }
+        }
+
+        fun obtenerPedidoPorId(idPedido: Int): PedidoDto? {
+            return transaction {
+                val pedido = Pedido.findById(idPedido) ?: return@transaction null
+                return@transaction PedidoDto(
+                    pedido.id.value,
+                    pedido.id_cliente.value,
+                    pedido.estado.name,
+                    pedido.fecha_pedido.toString()
+                )
+            }
+        }
+
+        fun obtenerPedidosPorCliente(idCliente: Int): List<PedidoDto> {
+            return transaction {
+                val cliente = Cliente.findById(idCliente) ?: return@transaction emptyList()
+                return@transaction Pedido.find { Pedidos.id_cliente eq cliente.id }.map { pedido ->
+                    println(pedido.fecha_pedido.toString())
+                    PedidoDto(
+                        pedido.id.value,
+                        pedido.id_cliente.value,
+                        pedido.estado.name,
+                        pedido.fecha_pedido.toString()
+
                     )
                 }
             }
         }
     }
-
-
 
     var id_cliente by Pedidos.id_cliente
     var estado by Pedidos.estado

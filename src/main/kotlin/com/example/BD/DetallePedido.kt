@@ -17,10 +17,10 @@ class DetallePedido(id: EntityID<Int>) : IntEntity(id) {
 
         @Serializable
         data class DetallePedidoDto(
-            val id: Int?,
-            val idPedido: Int,
-            val idProducto: Int,
-            val cantidad: Int
+            val id: Int? = null,
+            val idPedido: Int? = null,
+            val idProducto: Int? = null,
+            val cantidad: Int // este campo sigue siendo obligatorio
         )
 
         fun insertDetallePedido(idPedido: Int, idProducto: Int, cantidad: Int): Boolean {
@@ -111,6 +111,26 @@ class DetallePedido(id: EntityID<Int>) : IntEntity(id) {
                 return@transaction true
             }
         }
+        fun obtenerDetallesPorPedido(idPedido: Int): List<DetallePedidoDto> {
+            return transaction {
+                if (idPedido == null ||idPedido == 0) {
+                    println("Pedido no encontrado con el id: $idPedido")
+                    return@transaction emptyList<DetallePedidoDto>()
+                }
+
+                return@transaction DetallePedido.find {
+                    DetallesPedidos.id_pedido eq idPedido
+                }.map { detalle ->
+                    DetallePedidoDto(
+                        id = detalle.id.value,
+                        idPedido = detalle.id_pedido.id.value,
+                        idProducto = detalle.id_producto.id.value,
+                        cantidad = detalle.cantidad
+                    )
+                }
+            }
+        }
+
     }
 
     var id_pedido by Pedido referencedOn DetallesPedidos.id_pedido

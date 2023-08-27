@@ -15,13 +15,13 @@ import io.ktor.http.content.*
 import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.http.content.*
 import io.ktor.server.plugins.contentnegotiation.*
-import kotlinx.serialization.Serializable
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.mindrot.jbcrypt.BCrypt
 import java.io.File
 import java.io.InputStream
 import java.io.OutputStream
 import java.util.*
+import kotlinx.serialization.Serializable
 
 fun Application.configureRouting() {
     install(ContentNegotiation) {
@@ -348,11 +348,24 @@ fun Application.configureRouting() {
                     post {
                         val detallePedidoDto = call.receive<DetallePedido.Companion.DetallePedidoDto>()
                         DetallePedido.insertDetallePedido(
-                            detallePedidoDto.idPedido,
-                            detallePedidoDto.idProducto,
+                            detallePedidoDto.idPedido!!,
+                            detallePedidoDto.idProducto!!,
                             detallePedidoDto.cantidad
                         )
                         call.respond(HttpStatusCode.Created)
+                    }
+                    get("/{idPedido}") {
+                        val idPedido = call.parameters["idPedido"]?.toIntOrNull()
+                        if (idPedido != null) {
+                            val detalles = DetallePedido.obtenerDetallesPorPedido(idPedido)
+                            if (detalles.isNotEmpty()) {
+                                call.respond(HttpStatusCode.OK, detalles)
+                            } else {
+                                call.respond(HttpStatusCode.NotFound)
+                            }
+                        } else {
+                            call.respond(HttpStatusCode.BadRequest)
+                        }
                     }
 
                     delete("/{id}") {
@@ -548,7 +561,14 @@ fun Application.configureRouting() {
                             val estadoPedido = Pedidos.EstadoPedido.EN_PROCESO
                             val pedidoCreado = Pedido.crearPedido(cliente.id.value, estadoPedido)
                             if (pedidoCreado != null) {
-                                call.respond(HttpStatusCode.Created, pedidoCreado)
+                                // Convert the Exposed entity to a DTO object
+                                val pedidoDto = Pedido.Companion.PedidoDto(
+                                    idPedido = pedidoCreado.id.value,
+                                    idCliente = pedidoCreado.id_cliente.value,
+                                    estado = pedidoCreado.estado.name
+                                )
+                                // Use the DTO object in the response
+                                call.respond(HttpStatusCode.Created, pedidoDto)
                             } else {
                                 call.respond(HttpStatusCode.BadRequest, "No se pudo crear el pedido")
                             }
@@ -556,6 +576,7 @@ fun Application.configureRouting() {
                             call.respond(HttpStatusCode.Forbidden)
                         }
                     }
+
 
 
                     get {
@@ -573,6 +594,31 @@ fun Application.configureRouting() {
                             }
                         }
                     }
+                    get("/{id}") {
+                        val idUsuario = obtenerIdUsuarioDesdeToken(call)
+                        val idPedido = call.parameters["id"]?.toIntOrNull()
+
+                        if (idPedido == null) {
+                            call.respond(HttpStatusCode.BadRequest, "ID de pedido inválido")
+                            return@get
+                        }
+
+                        val pedidoActual = Pedido.obtenerPedidoPorId(idPedido)  // Asume que tienes una función similar para cargar el pedido desde la DB
+
+                        if (pedidoActual == null) {
+                            call.respond(HttpStatusCode.NotFound, "Pedido no encontrado")
+                            return@get
+                        }
+
+                        val cliente = Cliente.obtenerClientePorUsuario(idUsuario!!)
+
+                        if (Usuario.esAdministrador(idUsuario) || cliente != null && cliente.id.value == pedidoActual.idCliente) {
+                            call.respond(HttpStatusCode.OK, pedidoActual)
+                        } else {
+                            call.respond(HttpStatusCode.Forbidden)
+                        }
+                    }
+
                     get("/enProceso") {
                         val idUsuario = obtenerIdUsuarioDesdeToken(call)
                         val cliente = Cliente.obtenerClientePorUsuario(idUsuario!!)
@@ -587,15 +633,47 @@ fun Application.configureRouting() {
                             call.respond(HttpStatusCode.Forbidden, "Acceso denegado.")
                         }
                     }
+                    get("/pedidosCliente") {
+                        val idUsuario = obtenerIdUsuarioDesdeToken(call)
+
+                        if (idUsuario == null) {
+                            call.respond(HttpStatusCode.Unauthorized, "Token inválido o no proporcionado")
+                            return@get
+                        }
+
+                        if (Usuario.esAdministrador(idUsuario)) {
+
+                            call.respond(HttpStatusCode.Forbidden, "Operación no permitida para administradores")
+                        } else {
+                            val cliente = Cliente.obtenerClientePorUsuario(idUsuario)
+                            if (cliente != null) {
+                                val pedidos = Pedido.obtenerPedidosPorCliente(cliente.id.value)
+                                call.respond(pedidos)
+                                println("Respuesta completa del servidor: $pedidos")
+                            } else {
+                                call.respond(HttpStatusCode.NotFound, "Cliente no encontrado")
+                            }
+                        }
+                    }
+
 
                     put("/{id}") {
                         val idUsuario = obtenerIdUsuarioDesdeToken(call)
                         val pedidoDto = call.receive<Pedido.Companion.PedidoDto>()
-                        val id = call.parameters["id"]?.toIntOrNull()
+                        val idPedido = call.parameters["id"]?.toIntOrNull()
+
+                        val pedidoActual = Pedido.obtenerPedidoPorId(idPedido!!) // Supongo que tienes una función similar para cargar el pedido desde la DB
+
                         val cliente = Cliente.obtenerClientePorUsuario(idUsuario!!)
-                        if (cliente != null && (Usuario.esAdministrador(idUsuario) || cliente.id.value == pedidoDto.idCliente)) {
+
+                        if (pedidoActual == null) {
+                            call.respond(HttpStatusCode.NotFound, "Pedido no encontrado")
+                            return@put
+                        }
+
+                        if (Usuario.esAdministrador(idUsuario) || cliente!!.id.value == pedidoDto.idCliente || cliente!!.id.value == pedidoActual.idCliente) {
                             val success = Pedido.actualizarPedido(
-                                id!!,
+                                idPedido!!,
                                 Pedidos.EstadoPedido.valueOf(pedidoDto.estado)
                             )
                             if (success) {
@@ -607,6 +685,7 @@ fun Application.configureRouting() {
                             call.respond(HttpStatusCode.Forbidden)
                         }
                     }
+
 
                     delete("/{id}") {
                         val idUsuario = obtenerIdUsuarioDesdeToken(call)
@@ -701,7 +780,7 @@ fun Application.configureRouting() {
                     }
                     get("/{id}") {
                         val idUsuario = obtenerIdUsuarioDesdeToken(call)
-                        if (Usuario.esAdministrador(idUsuario!!)) {
+
                             val id = call.parameters["id"]?.toIntOrNull()
                             val productoDto = id?.let { Producto.obtenerProductoPorId(it) }
                             if (productoDto != null) {
@@ -709,11 +788,7 @@ fun Application.configureRouting() {
                             } else {
                                 call.respond(HttpStatusCode.NotFound, "Producto no encontrado")
                             }
-                        } else {
-                            call.respond(HttpStatusCode.Forbidden)
                         }
-                    }
-
                 }
                 route ("/valoraciones") {
                     post {
@@ -843,21 +918,50 @@ fun Application.configureRouting() {
                         }
                     }
 
-                    put("/actualizar/{id}") {
+                    put("/actualizar") {
                         val idUsuario = obtenerIdUsuarioDesdeToken(call)
-                        val id = call.parameters["id"]?.toIntOrNull()
-                        if (id != null && idUsuario != null && (idUsuario == id || Usuario.esAdministrador(idUsuario))) {
+
+                        if (idUsuario != null || Usuario.esAdministrador(idUsuario!!)) {
                             val usuarioDto = call.receive<Usuario.Companion.UsuarioDto>()
-                            val resultado = Usuario.actualizarUsuario(id, usuarioDto)
+                            usuarioDto.id = idUsuario
+                            val resultado = Usuario.actualizarUsuario(usuarioDto)
                             if (resultado) {
                                 call.respond(HttpStatusCode.OK, "Usuario actualizado correctamente")
                             } else {
-                                call.respond(HttpStatusCode.NotFound, "No se encontró el usuario con ID: $id")
+                                call.respond(HttpStatusCode.NotFound, "No se encontró el usuario con ID: $idUsuario")
                             }
                         } else {
                             call.respond(HttpStatusCode.Forbidden)
                         }
                     }
+                    get("/obtener") {
+                        val idUsuario = obtenerIdUsuarioDesdeToken(call)
+                        if (idUsuario != null) {
+                            val usuario = Usuario.obtenerUsuarioPorId(idUsuario)
+                            if (usuario != null) {
+                                call.respond(HttpStatusCode.OK, usuario)
+                            } else {
+                                call.respond(HttpStatusCode.NotFound, "No se encontró el usuario con ID: $idUsuario")
+                            }
+                        } else {
+                            call.respond(HttpStatusCode.Forbidden)
+                        }
+                    }
+                    get("/todos") {
+                        val idUsuario = obtenerIdUsuarioDesdeToken(call)
+                        if (idUsuario != null && Usuario.esAdministrador(idUsuario)) {
+                            val todosLosUsuarios = Usuario.obtenerTodosLosUsuarios()
+                            if (todosLosUsuarios.isNotEmpty()) {
+                                call.respond(HttpStatusCode.OK, todosLosUsuarios)
+                            } else {
+                                call.respond(HttpStatusCode.NotFound, "No hay usuarios en la base de datos.")
+                            }
+                        } else {
+                            call.respond(HttpStatusCode.Forbidden, "No tienes permiso para acceder a esta información.")
+                        }
+                    }
+
+
                 }
 
 

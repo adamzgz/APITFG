@@ -19,13 +19,14 @@ class Usuario(id: EntityID<Int>) : IntEntity(id) {
     companion object : IntEntityClass<Usuario>(Usuarios) {
         @Serializable
         data class UsuarioDto(
+            var id: Int? = null,
             val nombre: String,
             val direccion: String,
             val telefono: String,
             val email: String,
             val contraseña: String,
 
-        )
+            )
 
         @Serializable
         data class EmpleadoDto(
@@ -94,25 +95,32 @@ class Usuario(id: EntityID<Int>) : IntEntity(id) {
 
 
 
-        fun actualizarUsuario(id: Int, usuarioDto: UsuarioDto): Boolean {
-            if (id <= 0 || usuarioDto.nombre.isBlank() || usuarioDto.direccion.isBlank() || usuarioDto.telefono.isBlank() || usuarioDto.email.isBlank() || usuarioDto.contraseña.isBlank()) {
+
+        fun actualizarUsuario(usuarioDto: UsuarioDto): Boolean {
+            if (usuarioDto.id == null || usuarioDto.id!! <= 0 || usuarioDto.nombre.isBlank() || usuarioDto.direccion.isBlank() || usuarioDto.telefono.isBlank() || usuarioDto.email.isBlank()) {
                 println("Datos del usuario no válidos.")
                 return false
             }
 
             return transaction {
                 try {
-                    val usuario = Usuario.findById(id)
+                    // Usa el ID para encontrar al usuario
+                    val usuario = Usuario.findById(usuarioDto.id!!)
                     if (usuario != null) {
                         usuario.nombre = usuarioDto.nombre
                         usuario.direccion = usuarioDto.direccion
                         usuario.telefono = usuarioDto.telefono
                         usuario.email = usuarioDto.email
-                        usuario.contraseña = cifrarContraseña(usuarioDto.contraseña)
+
+                        // Comprobar si la contraseña ha cambiado y si no es una cadena vacía
+                        if (usuarioDto.contraseña.isNotBlank() && !BCrypt.checkpw(usuarioDto.contraseña, usuario.contraseña)) {
+                            // Actualizar la contraseña solo si ha cambiado
+                            usuario.contraseña = BCrypt.hashpw(usuarioDto.contraseña, BCrypt.gensalt())
+                        }
 
                         return@transaction true
                     } else {
-                        println("No se pudo encontrar el usuario con ID: $id")
+                        println("No se pudo encontrar el usuario con ID: ${usuarioDto.id}")
                         return@transaction false
                     }
                 } catch (e: Exception) {
@@ -188,6 +196,54 @@ class Usuario(id: EntityID<Int>) : IntEntity(id) {
                 throw IllegalArgumentException("La contraseña debe contener al menos una letra mayúscula y un número")
             }
         }
+        fun obtenerUsuarioPorId(id: Int): UsuarioDto? {
+            return transaction {
+                try {
+                    val usuario = Usuario.findById(id)
+                    if (usuario != null) {
+                        return@transaction UsuarioDto(
+                            id = null,
+                            nombre = usuario.nombre,
+                            direccion = usuario.direccion,
+                            telefono = usuario.telefono,
+                            email = usuario.email,
+                            contraseña = ""
+                        )
+                    } else {
+                        println("No se pudo encontrar el usuario con ID: $id")
+                        return@transaction null
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    return@transaction null
+                }
+            }
+        }
+        private fun verificarContraseña(contraseña: String, hashContraseña: String): Boolean {
+            return BCrypt.checkpw(contraseña, hashContraseña)
+        }
+        fun obtenerTodosLosUsuarios(): List<UsuarioDto> {
+            return transaction {
+                try {
+                    return@transaction Usuario.all().map { usuario ->
+                        UsuarioDto(
+                            id = usuario.id.value,
+                            nombre = usuario.nombre,
+                            direccion = usuario.direccion,
+                            telefono = usuario.telefono,
+                            email = usuario.email,
+                            contraseña = ""
+                        )
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    return@transaction emptyList<UsuarioDto>()
+                }
+            }
+        }
+
+
+
     }
 
     var nombre by Usuarios.nombre
