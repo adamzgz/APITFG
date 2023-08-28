@@ -1,6 +1,7 @@
 package com.example.plugins
 
 import Conexion
+import Producto.Companion.crearProducto
 import Usuario
 import io.ktor.http.*
 import io.ktor.server.routing.*
@@ -22,6 +23,9 @@ import java.io.InputStream
 import java.io.OutputStream
 import java.util.*
 import kotlinx.serialization.Serializable
+import java.io.IOException
+import java.nio.file.Files
+import java.nio.file.Paths
 
 fun Application.configureRouting() {
     install(ContentNegotiation) {
@@ -717,12 +721,12 @@ fun Application.configureRouting() {
                         println("prueba2" + idUsuario)
                         if (Usuario.esAdministrador(idUsuario!!)) {
                             val productoDto = call.receive<Producto.Companion.ProductoDto>()
-                            val success = Producto.crearProducto(
+                            val success = crearProducto( // Asume que esta función devuelve un valor Boolean
                                 productoDto.nombre,
                                 productoDto.descripcion,
                                 productoDto.precio,
                                 productoDto.idCategoria,
-                                productoDto.imagen
+                                productoDto.imagen // Mantenemos el nombre original de la imagen
                             )
                             if (success) {
                                 call.respond(HttpStatusCode.Created)
@@ -733,6 +737,11 @@ fun Application.configureRouting() {
                             call.respond(HttpStatusCode.Forbidden)
                         }
                     }
+
+
+
+
+
 
                     delete("/{id}") {
                         val idUsuario = obtenerIdUsuarioDesdeToken(call)
@@ -754,6 +763,19 @@ fun Application.configureRouting() {
                         if (Usuario.esAdministrador(idUsuario!!)) {
                             val productoDto = call.receive<Producto.Companion.ProductoDto>()
                             val id = call.parameters["id"]?.toIntOrNull()
+
+                            // Obtenemos el producto antiguo para borrar su imagen
+                            val oldProducto = Producto.obtenerProductoPorId(id!!)
+                            if (oldProducto != null) {
+                                val oldImageName = oldProducto.imagen
+                                val oldImagePath = Paths.get("resources/img_productos/$oldImageName")
+
+                                // Comprobamos si la imagen antigua existe antes de intentar borrarla
+                                if (Files.exists(oldImagePath)) {
+                                    Files.deleteIfExists(oldImagePath)
+                                }
+                            }
+
                             val success = id?.let {
                                 Producto.actualizarProducto(
                                     it,
@@ -764,6 +786,7 @@ fun Application.configureRouting() {
                                     productoDto.imagen
                                 )
                             }
+
                             if (success == true) {
                                 call.respond(HttpStatusCode.OK)
                             } else {
@@ -960,6 +983,38 @@ fun Application.configureRouting() {
                             call.respond(HttpStatusCode.Forbidden, "No tienes permiso para acceder a esta información.")
                         }
                     }
+                    post("/deshabilitar/admin/{id}") {
+                        val idUsuario = obtenerIdUsuarioDesdeToken(call) // Suponiendo que tienes un método para obtener el ID del usuario desde el token
+                        val id = call.parameters["id"]?.toIntOrNull()
+
+                        if (id != null && idUsuario != null && Usuario.esAdministrador(idUsuario)) {
+                            val resultado = Usuario.deshabilitarCuenta(id)
+                            if (resultado) {
+                                call.respond(HttpStatusCode.OK, "La cuenta del usuario con ID $id ha sido deshabilitada.")
+                            } else {
+                                call.respond(HttpStatusCode.NotFound, "No se encontró el usuario con ID $id.")
+                            }
+                        } else {
+                            call.respond(HttpStatusCode.Forbidden, "No tienes permisos para deshabilitar esta cuenta.")
+                        }
+                    }
+
+                    // Endpoint que obtiene el ID a partir del token
+                    post("/deshabilitar") {
+                        val idUsuario = obtenerIdUsuarioDesdeToken(call) // Suponiendo que tienes un método para obtener el ID del usuario desde el token
+
+                        if (idUsuario != null) {
+                            val resultado = Usuario.deshabilitarCuenta(idUsuario)
+                            if (resultado) {
+                                call.respond(HttpStatusCode.OK, "Tu cuenta ha sido deshabilitada.")
+                            } else {
+                                call.respond(HttpStatusCode.NotFound, "No se pudo encontrar tu cuenta.")
+                            }
+                        } else {
+                            call.respond(HttpStatusCode.Forbidden, "No tienes permisos para deshabilitar esta cuenta.")
+                        }
+                    }
+                }
 
 
                 }
@@ -969,7 +1024,7 @@ fun Application.configureRouting() {
         }
 
     }
-}
+
 suspend fun InputStream.copyToSuspend(out: OutputStream, bufferSize: Int = DEFAULT_BUFFER_SIZE): Long {
     var bytesCopied: Long = 0
     val buffer = ByteArray(bufferSize)

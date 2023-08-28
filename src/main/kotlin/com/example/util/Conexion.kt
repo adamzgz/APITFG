@@ -19,9 +19,7 @@ class Conexion {
                     Pedidos,
                     DetallesPedidos,
                     Valoraciones,
-                    Categorias,
-                    Chats,
-                    Mensajes
+                    Categorias
                 )
             }
         }

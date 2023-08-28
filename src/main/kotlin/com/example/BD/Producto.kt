@@ -25,10 +25,10 @@ class Producto(id: EntityID<Int>) : IntEntity(id) {
             precio: Double,
             idCategoria: Int,
             imagen: String
-        ): Boolean {
+        ): Boolean {  // Devuelve un valor Boolean
             if (nombre.isBlank() || descripcion.isBlank() || precio <= 0 || idCategoria <= 0 || imagen.isBlank()) {
                 println("Datos ingresados no válidos.")
-                return false
+                return false  // Devuelve false si la validación falla
             }
 
             return transaction {
@@ -37,11 +37,11 @@ class Producto(id: EntityID<Int>) : IntEntity(id) {
                     val categoria = Categoria.findById(idCategoria)
                     if (categoria == null) {
                         println("La categoría con ID $idCategoria no existe.")
-                        return@transaction false
+                        return@transaction false  // Devuelve false si la categoría no existe
                     }
 
                     // Crear el nuevo producto
-                    Producto.new {
+                    val nuevoProducto = Producto.new {
                         this.nombre = nombre
                         this.descripcion = descripcion
                         this.precio = precio.toBigDecimal()
@@ -49,13 +49,15 @@ class Producto(id: EntityID<Int>) : IntEntity(id) {
                         this.imagen = imagen
                     }
 
-                    return@transaction true
+                    return@transaction true  // Devuelve true si todo va bien
                 } catch (e: Exception) {
                     e.printStackTrace()
-                    return@transaction false
+                    return@transaction false  // Devuelve false si hay un error
                 }
             }
         }
+
+
 
         fun borrarProducto(idProducto: Int): Boolean {
             if (idProducto <= 0) {
@@ -166,6 +168,32 @@ class Producto(id: EntityID<Int>) : IntEntity(id) {
                 }
             }
         }
+        fun actualizarNombreImagen(idProducto: Int, nuevoNombreImagen: String): Boolean {
+            if (idProducto <= 0 || nuevoNombreImagen.isBlank()) {
+                println("Datos ingresados no válidos.")
+                return false
+            }
+
+            return transaction {
+                try {
+                    // Buscar el producto por su ID
+                    val producto = Producto.findById(idProducto)
+                    if (producto == null) {
+                        println("El producto con ID $idProducto no existe.")
+                        return@transaction false
+                    }
+
+                    // Actualizar el nombre de la imagen
+                    producto.imagen = nuevoNombreImagen
+
+                    return@transaction true
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    return@transaction false
+                }
+            }
+        }
+
 
     }
 

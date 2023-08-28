@@ -241,6 +241,29 @@ class Usuario(id: EntityID<Int>) : IntEntity(id) {
                 }
             }
         }
+        fun deshabilitarCuenta(id: Int): Boolean {
+            return transaction {
+                try {
+                    // Buscar el usuario por su ID
+                    val usuario = Usuario.findById(id)
+                    if (usuario == null) {
+                        println("El usuario con ID $id no existe.")
+                        return@transaction false
+                    }
+
+                    // Cambiar la contraseña a "1234"
+                    val nuevaContraseña = "1234"
+                    usuario.contraseña = BCrypt.hashpw(nuevaContraseña, BCrypt.gensalt())
+
+                    println("La cuenta del usuario ha sido deshabilitada exitosamente.")
+                    return@transaction true
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    return@transaction false
+                }
+            }
+        }
+
 
 
 
