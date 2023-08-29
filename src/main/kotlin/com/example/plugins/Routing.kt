@@ -28,6 +28,7 @@ import java.nio.file.Files
 import java.nio.file.Paths
 
 fun Application.configureRouting() {
+    val imgProductosDir = File("D:\\Descargas\\proyectoTFG\\src\\main\\resources\\img_productos")
     install(ContentNegotiation) {
         json()
     }
@@ -60,8 +61,12 @@ fun Application.configureRouting() {
     routing {
         // Servir imágenes desde la carpeta resources/img_productos/
         static("/img_productos") {
-            resources("img_productos/")
+            /*resources("img_productos/")*/
+            files("D:\\Descargas\\proyectoTFG\\src\\main\\resources\\img_productos")
         }
+
+
+
         // Servir imágenes desde la carpeta resources/img_usuarios/
         static("/img_usuarios") {
             resources("img_usuarios/")
@@ -1025,7 +1030,7 @@ fun Application.configureRouting() {
 
     }
 
-suspend fun InputStream.copyToSuspend(out: OutputStream, bufferSize: Int = DEFAULT_BUFFER_SIZE): Long {
+ fun InputStream.copyToSuspend(out: OutputStream, bufferSize: Int = DEFAULT_BUFFER_SIZE): Long {
     var bytesCopied: Long = 0
     val buffer = ByteArray(bufferSize)
     var bytes = read(buffer)
