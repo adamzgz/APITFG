@@ -263,6 +263,38 @@ class Usuario(id: EntityID<Int>) : IntEntity(id) {
                 }
             }
         }
+        // Función para verificar si hay algún usuario con rol de administrador.
+        fun verificarAdministrador() {
+            Conexion.conectar()
+            transaction {
+                val administradores = Empleado.all().filter { it.rol == Empleados.RolEmpleado.ADMINISTRADOR }
+
+                // Si no hay ningún administrador, crea uno.
+                if (administradores.isEmpty()) {
+                    // Crear un nuevo usuario con correo "admin" y contraseña "admin"
+                    val contraseñaCifrada = cifrarContraseña("admin")
+
+                    val nuevoUsuario = Usuario.new {
+                        nombre = "Administrador"
+                        direccion = "N/A"
+                        telefono = "N/A"
+                        email = "admin"
+                        contraseña = contraseñaCifrada
+                    }
+
+                    // Asignarle el rol de administrador al nuevo usuario
+                    Empleado.new {
+                        this.id_usuario = nuevoUsuario
+                        this.rol = Empleados.RolEmpleado.ADMINISTRADOR
+                    }
+
+                    println("Se ha creado un nuevo usuario administrador con correo 'admin' y contraseña 'admin'.")
+                } else {
+                    println("Ya hay un usuario con rol de administrador.")
+                }
+            }
+        }
+
 
 
 

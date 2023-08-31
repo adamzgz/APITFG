@@ -115,3 +115,4 @@ class Categoria(id: EntityID<Int>) : IntEntity(id) {
 
     var nombre by Categorias.nombre
 }
+
