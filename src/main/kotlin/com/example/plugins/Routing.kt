@@ -28,7 +28,7 @@ import java.nio.file.Files
 import java.nio.file.Paths
 
 fun Application.configureRouting() {
-    val imgProductosDir = File("D:\\Descargas\\proyectoTFG\\src\\main\\resources\\img_productos")
+    //val imgProductosDir = File("D:\\Descargas\\proyectoTFG\\src\\main\\resources\\img_productos")
     install(ContentNegotiation) {
         json()
     }
@@ -68,9 +68,9 @@ fun Application.configureRouting() {
 
 
         // Servir imágenes desde la carpeta resources/img_usuarios/
-        static("/img_usuarios") {
+       /* static("/img_usuarios") {
             resources("img_usuarios/")
-        }
+        }*/
 
         route("/auth") {
 
@@ -119,6 +119,9 @@ fun Application.configureRouting() {
         }
         authenticate("jwt-auth") {
             route("/secure") {
+                get("/validate") {
+                    call.respond(HttpStatusCode.OK, "Token válido")
+                }
                 route("/add_img_productos") {
                     post {
                         println("Entrando al endpoint /add_img_productos")
@@ -752,6 +755,21 @@ fun Application.configureRouting() {
                         val idUsuario = obtenerIdUsuarioDesdeToken(call)
                         if (Usuario.esAdministrador(idUsuario!!)) {
                             val id = call.parameters["id"]?.toIntOrNull()
+
+                            // Obtenemos el producto antiguo para borrar su imagen
+                            val oldProducto = Producto.obtenerProductoPorId(id!!)
+                            if (oldProducto != null) {
+                                val oldImageName = oldProducto.imagen
+
+                                // Utiliza la ruta absoluta al directorio donde se almacenan las imágenes
+                                val oldImagePath = Paths.get("D:/Descargas/proyectoTFG/src/main/resources/img_productos/$oldImageName")
+
+                                // Comprobamos si la imagen antigua existe antes de intentar borrarla
+                                if (Files.exists(oldImagePath)) {
+                                    Files.deleteIfExists(oldImagePath)
+                                }
+                            }
+
                             val success = id?.let { Producto.borrarProducto(it) }
                             if (success == true) {
                                 call.respond(HttpStatusCode.NoContent)
@@ -763,6 +781,7 @@ fun Application.configureRouting() {
                         }
                     }
 
+
                     put("/{id}") {
                         val idUsuario = obtenerIdUsuarioDesdeToken(call)
                         if (Usuario.esAdministrador(idUsuario!!)) {
@@ -773,7 +792,9 @@ fun Application.configureRouting() {
                             val oldProducto = Producto.obtenerProductoPorId(id!!)
                             if (oldProducto != null) {
                                 val oldImageName = oldProducto.imagen
-                                val oldImagePath = Paths.get("resources/img_productos/$oldImageName")
+
+                                // Utiliza la ruta absoluta al directorio donde se almacenan las imágenes
+                                val oldImagePath = Paths.get("D:/Descargas/proyectoTFG/src/main/resources/img_productos/$oldImageName")
 
                                 // Comprobamos si la imagen antigua existe antes de intentar borrarla
                                 if (Files.exists(oldImagePath)) {
